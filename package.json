@@ -1,0 +1,39 @@
+{
+  "name": "cogulator",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format ./src",
+    "format-fix": "biome format --write ./src",
+    "lint": "biome lint ./src",
+    "lint-fix": "biome lint --write ./src"
+  },
+  "dependencies": {
+    "@types/lodash-es": "^4.17.12",
+    "clsx": "^2.1.1",
+    "lodash-es": "^4.17.21",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "use-sound": "^5.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.0.6",
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.3",
+    "vite-plugin-checker": "^0.10.0",
+    "vite-plugin-svgr": "^4.3.0",
+    "vitest": "^3.2.4"
+  }
+}

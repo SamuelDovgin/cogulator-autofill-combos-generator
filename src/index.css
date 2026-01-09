@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility bg-toon-paper {
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(253, 243, 217, 1) 100%
+  );
+}
+
+@utility shadow-inner-xl {
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000), inset 0 0px 4px 0 rgb(0 0 0 / 0.5);
+}
+
+@utility drop-shadow-box {
+  filter: drop-shadow(
+    var(--tw-drop-shadow-box, -5px 5px 5px rgba(0 0 0 / 0.5))
+  );
+}
+
+@utility shadow-gag {
+  box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
+    -1px 2px 4px 2px var(--tw-shadow-color, rgba(0, 0, 0, 0.5));
+}
+
+@utility font-minnie {
+  text-shadow: 3px 3px black;
+  color: white;
+}
+
+@layer utilities {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  @font-face {
+    font-family: Impress;
+    src: url("/assets/fonts/Impress.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: Remington;
+    src: url("/assets/fonts/vtRemingtonPortable.woff") format("woff");
+  }
+
+  @font-face {
+    font-family: Minnie;
+    src: url("/assets/fonts/Minnie.woff") format("woff");
+  }
+}
+
+@layer base {
+  html {
+    font-family: Impress, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+      "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@theme {
+  --font-minnie: "Minnie", Impact;
+  --font-toon: "Impress", "Comic Sans MS", "Comic Sans", cursive;
+  --font-cog: "Remington", "American Typewriter";
+}
+
+.root-node {
+  background-image: url("../assets/cogulator_bg.png");
+  background-size: 1000px;
+}
