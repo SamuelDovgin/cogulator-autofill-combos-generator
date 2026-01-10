@@ -1,4 +1,4 @@
-# Big Brain Town
+# Big Brain Town V2 (MODIFIED BIG BRAIN TOWN)
 
 Big Brain Town is a calculator to be used for the game Toontown Rewritten. I made it for fun a little after the release of Field Offices because they required more precise calculations and strategies.
 
