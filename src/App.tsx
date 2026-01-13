@@ -29,13 +29,19 @@ const HIDE_TOONUP = true;
 
 const LEVEL6_TRACKS = ['Trap', 'Lure', 'Sound', 'Throw', 'Squirt', 'Drop'] as const;
 
-const DEFAULT_EXCLUDE = {
-  low1to3: true,
-  level7: true,
-  level6ByTrack: Object.fromEntries(LEVEL6_TRACKS.map((t) => [t, true])) as Partial<
+const DEFAULT_EXCLUDE = (() => {
+  const byTrack = Object.fromEntries(LEVEL6_TRACKS.map((t) => [t, true])) as Partial<
     Record<GagTrackName, boolean>
-  >,
-};
+  >;
+  // Default: do not exclude level 6 for Trap and Drop
+  byTrack.Trap = false;
+  byTrack.Drop = false;
+  return {
+    low1to3: true,
+    level7: true,
+    level6ByTrack: byTrack,
+  };
+})();
 
 
 type FullSettingsV1 = {
@@ -83,6 +89,8 @@ export default function App() {
   const [showKillHints, setShowKillHints] = useState(true);
   const [greyOutExcludedLevels, setGreyOutExcludedLevels] = useState(true);
   const [isTargetAlreadyLured, setIsTargetAlreadyLured] = useState(false);
+  const [lureTracksMultiplierEnabled, setLureTracksMultiplierEnabled] = useState(true);
+  const [lureTracksMultiplier, setLureTracksMultiplier] = useState(0.5);
   const [targetHpText, setTargetHpText] = useState('');
   const [currentDmgText, setCurrentDmgText] = useState('');
 
@@ -558,6 +566,7 @@ export default function App() {
       maxToons,
       isTargetAlreadyLured,
       targetHpOverride: effectiveTargetHpOverride,
+      lureTrackMultiplier: lureTracksMultiplierEnabled ? lureTracksMultiplier : 1,
       excludeLevels,
       enabledTracks,
       sortMode,
@@ -572,6 +581,8 @@ export default function App() {
   }, [
     effectiveTargetLevel,
     calcSelectedGags,
+    lureTracksMultiplierEnabled,
+    lureTracksMultiplier,
     maxToons,
     excludeLevels,
     enabledTracks,
@@ -751,6 +762,8 @@ export default function App() {
                         >
                           🧲 {isTargetAlreadyLured ? 'Already lured' : 'Not lured'}
                         </button>
+
+                        {/* Moved: exclude-Lure toggle relocated to the combos menu */}
 
                         <label className="flex items-center gap-2 text-xs text-slate-200">
                           <span className="font-bold text-slate-200">Remaining HP</span>
@@ -1059,6 +1072,10 @@ export default function App() {
                   maxDisplayed={maxDisplayed}
                   onMaxDisplayedChange={handleMaxDisplayedChange}
                   onApply={applyAddedGags}
+                  lureTracksMultiplierEnabled={lureTracksMultiplierEnabled}
+                  lureTracksMultiplier={lureTracksMultiplier}
+                  onToggleLureTracksMultiplierEnabled={setLureTracksMultiplierEnabled}
+                  onSetLureTracksMultiplier={setLureTracksMultiplier}
                 />
               ) : (
                 <div className="rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-4 text-slate-200">

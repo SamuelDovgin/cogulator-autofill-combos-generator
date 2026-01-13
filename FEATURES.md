@@ -131,20 +131,65 @@ A comprehensive gag calculator for Toontown Rewritten, designed to help players 
 
 ### Sort Modes
 
-**Accuracy** (Default)
+**Accuracy**
 - Prioritizes highest one-turn KO probability
-- Then conserves higher-level gags
+- Tie-breakers: lower max gag level → lower average level → less overkill
 
 **Conserve Gags**
-- Prioritizes using lower-level gags
-- Then maximizes accuracy
+- Prioritizes using lower-level gags (lowest max level first)
+- Tie-breakers: lower average level → higher accuracy → less overkill
 
-**Weighted**
-- Customizable blend of factors:
-  - Accuracy weight (0-20)
-  - Conserve levels weight (0-20)
-  - Tracks weight (0-20, fewer tracks preferred)
-- Gag retain weights: per-gag importance values (0-1)
+**Weighted** (Default)
+- Customizable blend of three factors using a scoring formula
+- Combos are ranked by: `Score = (Acc × accScore) + (Levels × conserveScore) + (Tracks × trackScore)`
+
+### Weighted Sort Formula Deep Dive
+
+The weighted sort computes a score for each combo based on three normalized metrics:
+
+#### 1. Accuracy Score (`accScore`)
+- Range: 0.0 to 1.0
+- Directly uses the combo's one-turn KO probability
+- Example: 95% KO chance → accScore = 0.95
+
+#### 2. Conserve Score (`conserveScore`)
+- Range: 0.0 to 1.0
+- **Lower gag levels = higher score**
+- Calculated from `levelMetric = (maxEffectiveLevel × 10) + avgEffectiveLevel`
+- Each gag's "effective level" = `gagLevel × gagRetainWeight`
+- Normalized across all combos: `conserveScore = 1 - normalize(levelMetric)`
+
+#### 3. Track Score (`trackScore`)
+- Range: 0.0 to 1.0
+- **Fewer unique tracks = higher score**
+- Single-track combos (e.g., all Squirt) get trackScore = 1.0
+- Normalized: `trackScore = 1 - normalize(trackCount)`
+
+#### Default Weights
+```
+Acc: 0.7    - KO probability is paramount
+Levels: 0.15 - Light penalty for higher-level gags
+Tracks: 0.35 - Prefer single-track combos
+```
+
+#### Why Single-Track Combos Are Preferred
+- Single-track combos get **group bonus** (+20% damage)
+- All gags share the same accuracy roll (all hit or all miss together)
+- Easier to coordinate in-game
+- Higher track score bonus for using fewer tracks
+
+### Gag Retain Weights
+
+Per-gag importance values (0 to 1) that affect the Conserve Score:
+
+| Weight | Meaning | Example Gags |
+|--------|---------|--------------|
+| **0** | Freely use | Most level 1-5 gags |
+| **0.02** | Slight preference to conserve | Cream Pie, Fire Hose, Foghorn |
+| **0.5** | Moderate conservation | Toon-Up gags |
+| **1.0** | Strongly conserve (avoid using) | Level 7 SOS gags |
+
+When `gagRetainWeight = 0`, the gag doesn't contribute to levelMetric, making it "free" to use.
 
 ### Level Exclusions
 - **Exclude Level 1-3**: Hide low-level gags from recommendations
@@ -214,7 +259,29 @@ Note: All toons are assumed to always have Throw + Squirt.
 
 ## Changelog
 
-### Version 2.1.0 (Current)
+### Version 2.2.0 (Current)
+
+**New Features:**
+- **Max Shown Setting**: Configurable limit for displayed combos (5-100, default 20)
+- **Improved Layout**: Content now left-aligned with less wasted margin space
+- **Multiple Traps Display**: Can now add multiple traps to see them in equation (subsequent ones greyed out, don't affect damage)
+
+**Sorting Improvements:**
+- **Rebalanced Default Weights**: Changed to prioritize accuracy and single-track combos
+  - New defaults: `Acc: 0.7, Levels: 0.15, Tracks: 0.35`
+- **Adjusted Gag Retain Weights**:
+  - Fire Hose & Cream Pie: 0.02 → 0 (free to use)
+  - Drop gags penalized more: Anvil 0.1, Big Weight 0.2, Safe 0.25, Piano 0.3
+- Single-track Throw/Squirt combos now rank higher than Drop combos
+
+**UI Fixes:**
+- Fixed combos panel causing page flickering when hovering gags
+- Added half-screen bottom padding to prevent hover conflicts
+- Combos panel now has fixed max-height (600px) with vertical scroll
+
+---
+
+### Version 2.1.0
 
 **New Features:**
 - **Current Damage Input**: New field under Remaining HP to enter damage already dealt to cog

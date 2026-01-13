@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 
 import type { GagInfo, GagInstance } from '../types';
 import {
@@ -56,6 +56,10 @@ interface Props {
   maxDisplayed: number;
   onMaxDisplayedChange: (next: number) => void;
   onApply: (added: GagInfo[]) => void;
+  lureTracksMultiplierEnabled?: boolean;
+  lureTracksMultiplier?: number;
+  onToggleLureTracksMultiplierEnabled?: (next: boolean) => void;
+  onSetLureTracksMultiplier?: (next: number) => void;
 }
 
 export function KillOptionsTable({
@@ -78,6 +82,10 @@ export function KillOptionsTable({
   maxDisplayed,
   onMaxDisplayedChange,
   onApply,
+  lureTracksMultiplierEnabled = false,
+  lureTracksMultiplier = 1,
+  onToggleLureTracksMultiplierEnabled,
+  onSetLureTracksMultiplier,
 }: Props) {
   const scenarioKey = `lvl:${targetLevel}|hp:${targetHpOverride ?? 'full'}|lured:${isTargetAlreadyLured ? 1 : 0}|toons:${currentGags.length}`;
   const [favorites, setFavorites] = useState<FavoriteCombo[]>(() => loadFavoritesForKey(scenarioKey));
@@ -121,7 +129,18 @@ export function KillOptionsTable({
       }
       const avgEff = opt.addedGags.length ? sumEff / opt.addedGags.length : 0;
       const levelMetric = maxEff * 10 + avgEff;
-      const trackCount = new Set([...currentGags, ...opt.addedGags].map((g) => g.track)).size;
+      const tracksExcludingLure = new Set<string>();
+      let hasLure = false;
+      for (const g of [...currentGags, ...opt.addedGags]) {
+        if (g.track === 'Lure') {
+          hasLure = true;
+          continue;
+        }
+        tracksExcludingLure.add(g.track);
+      }
+      const mult = lureTracksMultiplierEnabled ? Number(lureTracksMultiplier ?? 1) : 1;
+      const safeMult = Number.isFinite(mult) ? Math.max(0, Math.min(1, mult)) : 1;
+      const trackCount = tracksExcludingLure.size + (hasLure ? safeMult : 0);
       return { maxEff, avgEff, levelMetric, trackCount };
     });
 
@@ -161,9 +180,19 @@ export function KillOptionsTable({
 
       return scoreTip ? `${accTip}\n\n${scoreTip}` : accTip;
     });
-  }, [options, currentGags, targetLevel, sortMode, sortWeights, gagConserveWeights]);
+  }, [options, currentGags, targetLevel, sortMode, sortWeights, gagConserveWeights, lureTracksMultiplierEnabled, lureTracksMultiplier]);
 
   const favoriteIds = new Set(favorites.map((f) => f.id));
+
+  // Scroll container ref: snap to top when new options are provided
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    try {
+      if (listRef.current) listRef.current.scrollTop = 0;
+    } catch {
+      // ignore
+    }
+  }, [options]);
 
   return (
     <div className="mt-3 w-full rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 md:p-4">
@@ -292,6 +321,33 @@ export function KillOptionsTable({
                 >
                   Gag retain weights…
                 </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    title="Enable fractional Lure contribution when counting unique tracks (0..1)"
+                    onClick={() => onToggleLureTracksMultiplierEnabled?.(!lureTracksMultiplierEnabled)}
+                    className={[
+                      'rounded-md border px-2 py-1 text-[11px] font-bold',
+                      lureTracksMultiplierEnabled
+                        ? 'border-green-400 bg-green-500/10 text-green-200'
+                        : 'border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-800/70',
+                    ].join(' ')}
+                  >
+                    🎯 Lure track value multiplier
+                  </button>
+                  {lureTracksMultiplierEnabled ? (
+                    <input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={Number(lureTracksMultiplier ?? 0.5)}
+                      onChange={(e) => onSetLureTracksMultiplier?.(Number(e.target.value))}
+                      className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
+                      title="When enabled, Lure contributes this fraction (0..1) to unique track count for weighted sorting"
+                    />
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -394,7 +450,7 @@ export function KillOptionsTable({
           No valid one-turn kill found with the current constraints / toon count.
         </div>
       ) : (
-        <div className="max-h-[600px] min-h-[300px] overflow-y-auto overflow-x-hidden pr-3">
+        <div ref={listRef} className="max-h-[600px] min-h-[300px] overflow-y-auto overflow-x-hidden pr-3">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wider text-slate-300/80">
               <tr>

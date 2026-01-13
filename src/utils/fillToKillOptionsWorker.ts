@@ -199,6 +199,7 @@ function computeWeightedMetrics(
   current: GagInfo[],
   opt: FillToKillOption,
   gagWeights: GagConserveWeights,
+  lureTrackMultiplier = 1,
 ): WeightedMetrics {
   const added = opt.addedGags;
 
@@ -224,10 +225,24 @@ function computeWeightedMetrics(
   // - then average (effective) levels matters next
   const levelMetric = maxEff * 10 + avgEff;
 
-  const tracks = new Set<string>();
-  for (const g of current) tracks.add(g.track);
-  for (const g of added) tracks.add(g.track);
-  const trackCount = tracks.size;
+  // Compute trackCount allowing Lure to contribute fractionally via `lureTrackMultiplier`.
+  const tracksExcludingLure = new Set<string>();
+  let hasLure = false;
+  for (const g of current) {
+    if (g.track === 'Lure') {
+      hasLure = true;
+      continue;
+    }
+    tracksExcludingLure.add(g.track);
+  }
+  for (const g of added) {
+    if (g.track === 'Lure') {
+      hasLure = true;
+      continue;
+    }
+    tracksExcludingLure.add(g.track);
+  }
+  const trackCount = tracksExcludingLure.size + (hasLure ? clamp01(Number(lureTrackMultiplier)) : 0);
 
   return { levelMetric, trackCount };
 }
@@ -243,8 +258,9 @@ function sortOptionsWeighted(
   currentGags: GagInfo[],
   weights: SortWeights,
   gagWeights: GagConserveWeights,
+  lureTrackMultiplier = 1,
 ) {
-  const metrics = options.map((o) => computeWeightedMetrics(currentGags, o, gagWeights));
+  const metrics = options.map((o) => computeWeightedMetrics(currentGags, o, gagWeights, lureTrackMultiplier));
   const levelMin = Math.min(...metrics.map((m) => m.levelMetric));
   const levelMax = Math.max(...metrics.map((m) => m.levelMetric));
   const trackMin = Math.min(...metrics.map((m) => m.trackCount));
@@ -750,6 +766,7 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
         req.currentGags,
         sortWeights,
         (req as any).gagConserveWeights ?? (req as any).toggles?.gagConserveWeights ?? {},
+        Number((req as any).toggles?.lureTrackMultiplier ?? 1),
       )
       : [...optionsToSort].sort((a, b) =>
         compareOptions(a, b, sortMode === 'accuracy'),
