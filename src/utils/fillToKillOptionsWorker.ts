@@ -358,6 +358,9 @@ function buildTrackCapacity(restrictions: ToonRestriction[], enabledTracks?: Rec
     }
     capacity[t] = count;
   }
+
+  // Single-target rule: only one trap can be placed on a Cog.
+  capacity.Trap = Math.min(capacity.Trap, 1);
   return capacity;
 }
 
@@ -588,7 +591,7 @@ function generateAndEvaluate(
   const initialLured = !!(req.isTargetAlreadyLured ?? toggles.isTargetAlreadyLured);
   const hpOverrideRaw = (req.targetHpOverride ?? toggles.targetHpOverride ?? null);
   const hpOverride = (hpOverrideRaw ?? null) !== null && Number.isFinite(Number(hpOverrideRaw))
-    ? Math.max(1, Math.floor(Number(hpOverrideRaw)))
+    ? Math.max(0, Math.floor(Number(hpOverrideRaw)))
     : null;
 
   // Pre-compute base track counts for capacity pruning
@@ -604,6 +607,9 @@ function generateAndEvaluate(
 
   function wouldExceedCapacity(track: GagTrack): boolean {
     const used = (baseCounts[track] ?? 0) + (addedCounts[track] ?? 0);
+    // Trap is special: only one trap can be placed on a single target.
+    if (track === 'Trap') return used >= 1;
+
     return used + 1 > (trackCapacity[track] ?? 0);
   }
 
@@ -740,14 +746,14 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
   const sorted =
     sortMode === 'weighted'
       ? sortOptionsWeighted(
-          optionsToSort,
-          req.currentGags,
-          sortWeights,
-          (req as any).gagConserveWeights ?? (req as any).toggles?.gagConserveWeights ?? {},
-        )
+        optionsToSort,
+        req.currentGags,
+        sortWeights,
+        (req as any).gagConserveWeights ?? (req as any).toggles?.gagConserveWeights ?? {},
+      )
       : [...optionsToSort].sort((a, b) =>
-          compareOptions(a, b, sortMode === 'accuracy'),
-        );
+        compareOptions(a, b, sortMode === 'accuracy'),
+      );
 
   return sorted.slice(0, maxResults);
 }

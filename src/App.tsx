@@ -56,6 +56,7 @@ type FullSettingsV1 = {
     greyOutExcludedLevels: boolean;
     isTargetAlreadyLured: boolean;
     targetHpOverride: number | null;
+    targetCurrentDamage: number | null;
     targetLevel: number | null;
     selectedGags: ExportedGag[];
   };
@@ -66,7 +67,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const [maxToons, setMaxToons] = useState<1 | 2 | 3 | 4>(4);
-  const [toonRestrictions, setToonRestrictions] = useState<ToonRestriction[]>(['none','none','none','none']);
+  const [toonRestrictions, setToonRestrictions] = useState<ToonRestriction[]>(['none', 'none', 'none', 'none']);
   const [excludeLevels, setExcludeLevels] = useState(DEFAULT_EXCLUDE);
   const [enabledTracks, setEnabledTracks] = useState<Record<GagTrackName, boolean>>(
     defaultEnabledTracks(),
@@ -82,6 +83,7 @@ export default function App() {
   const [greyOutExcludedLevels, setGreyOutExcludedLevels] = useState(true);
   const [isTargetAlreadyLured, setIsTargetAlreadyLured] = useState(false);
   const [targetHpText, setTargetHpText] = useState('');
+  const [currentDmgText, setCurrentDmgText] = useState('');
 
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
@@ -147,44 +149,58 @@ export default function App() {
     if (!t) return null;
     const n = Number(t);
     if (!Number.isFinite(n)) return null;
-    return Math.max(1, Math.floor(n));
+    return Math.max(0, Math.floor(n));
   }, [targetHpText]);
+  const targetCurrentDamage = useMemo(() => {
+    const t = currentDmgText.trim();
+    if (!t) return null;
+    const n = Number(t);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.floor(n));
+  }, [currentDmgText]);
 
-  const effectiveSelectedGags = useMemo(() => {
-    const baseRaw = selectedGags.slice(0, maxToons);
-    const base = isTargetAlreadyLured ? baseRaw.filter((g) => g.track !== 'Lure' && g.track !== 'Trap') : baseRaw;
-    const canAddPreview =
-      !!previewGag &&
-      base.length < maxToons &&
-      (!isTargetAlreadyLured || (previewGag.track !== 'Lure' && previewGag.track !== 'Trap'));
+  const effectiveTargetHpOverride = useMemo(() => {
+    if (targetHpOverride !== null) return targetHpOverride;
+    if (targetCurrentDamage === null) return null;
+    if (effectiveTargetLevel === null) return null;
+    return Math.max(0, calculateCogHealth(effectiveTargetLevel) - targetCurrentDamage);
+  }, [targetHpOverride, targetCurrentDamage, effectiveTargetLevel]);
+  const displaySelectedGags = useMemo(() => {
+    const base = selectedGags.slice(0, maxToons);
+    const canAddPreview = !!previewGag && base.length < maxToons;
     if (canAddPreview) return [...base, previewGag!];
     return base;
-  }, [selectedGags, previewGag, maxToons, isTargetAlreadyLured]);
+  }, [selectedGags, previewGag, maxToons]);
+
+  const calcSelectedGags = useMemo(() => {
+    if (!isTargetAlreadyLured) return displaySelectedGags;
+    return displaySelectedGags.filter((g) => g.track !== 'Lure' && g.track !== 'Trap');
+  }, [displaySelectedGags, isTargetAlreadyLured]);
 
   const { totalDamage, baseDamage, groupBonus, lureBonus, organicBonus } = useMemo(() => {
-    return calculateTotalDamage(effectiveSelectedGags, { lured: isTargetAlreadyLured });
-  }, [effectiveSelectedGags]);
+    return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
+  }, [calcSelectedGags, isTargetAlreadyLured]);
 
   const selectionAccuracy = useMemo(
     () =>
-      calculateComboAccuracy(effectiveSelectedGags, effectiveTargetLevel, {
+      calculateComboAccuracy(calcSelectedGags, effectiveTargetLevel, {
         initialLured: isTargetAlreadyLured,
-        targetHpOverride,
+        targetHpOverride: effectiveTargetHpOverride,
       }),
-    [effectiveSelectedGags, effectiveTargetLevel, isTargetAlreadyLured, targetHpOverride],
+    [calcSelectedGags, effectiveTargetLevel, isTargetAlreadyLured, effectiveTargetHpOverride],
   );
 
   const accuracyExplanation = useMemo(
     () =>
-      explainComboAccuracy(effectiveSelectedGags, effectiveTargetLevel, {
+      explainComboAccuracy(calcSelectedGags, effectiveTargetLevel, {
         initialLured: isTargetAlreadyLured,
-        targetHpOverride,
+        targetHpOverride: effectiveTargetHpOverride,
       }),
-    [effectiveSelectedGags, effectiveTargetLevel, isTargetAlreadyLured, targetHpOverride],
+    [calcSelectedGags, effectiveTargetLevel, isTargetAlreadyLured, effectiveTargetHpOverride],
   );
 
   const damageExplanation = useMemo(() => {
-    if (effectiveSelectedGags.length === 0) return 'No gags selected.';
+    if (displaySelectedGags.length === 0) return 'No gags selected.';
     const parts: string[] = [];
     parts.push('Damage numbers below assume all selected gags hit (separate from Accuracy).');
     parts.push(`Total = Base (${baseDamage}) + Group (${groupBonus}) + Lure (${lureBonus}) = ${totalDamage}`);
@@ -193,26 +209,28 @@ export default function App() {
     parts.push('Lure: if target becomes lured and a non-Sound damage track hits, +ceil(trackDamage/2), then lure ends.');
     parts.push('Organic: each organic gag adds at least +1 damage (ceil(maxDmg * organicBonus)); included in Base.');
     return parts.join('\n');
-  }, [effectiveSelectedGags, baseDamage, groupBonus, lureBonus, totalDamage]);
+  }, [displaySelectedGags, baseDamage, groupBonus, lureBonus, totalDamage]);
 
   const maxCogLevel = useMemo(
-    () => calculateMaxCogLevel(effectiveSelectedGags),
-    [effectiveSelectedGags],
+    () => calculateMaxCogLevel(calcSelectedGags),
+    [calcSelectedGags],
   );
 
   const maxCogExplanation = useMemo(() => {
-    if (effectiveSelectedGags.length === 0) return 'No gags selected.';
+    if (displaySelectedGags.length === 0) return 'No gags selected.';
     return (
       'Max Cog Level is the highest level (1..20) whose HP is <= the Total Damage shown (assuming all gags hit).\n' +
       'It does NOT account for Accuracy; use Accuracy / combo list for KO probability.'
     );
-  }, [effectiveSelectedGags]);
+  }, [displaySelectedGags]);
 
   const handleGagSelect = (gag: GagInfo) => {
-    if (selectedGags.length >= maxToons) return;
     // If you're committing a gag while it's being previewed, avoid double-adding.
     setPreviewGag(null);
-    setSelectedGags((prev) => [...prev, { ...gag, id: getUniqueId() }]);
+    setSelectedGags((prev) => {
+      if (prev.length >= maxToons) return prev;
+      return [...prev, { ...gag, id: getUniqueId() }];
+    });
   };
 
   const handleSelectionChanged = (gags: GagInstance[]) => {
@@ -269,6 +287,7 @@ export default function App() {
         greyOutExcludedLevels,
         isTargetAlreadyLured,
         targetHpOverride,
+        targetCurrentDamage,
         targetLevel,
         selectedGags: selectedGags
           .filter((g) => !g.isPreview)
@@ -297,6 +316,7 @@ export default function App() {
     greyOutExcludedLevels,
     isTargetAlreadyLured,
     targetHpOverride,
+    targetCurrentDamage,
     targetLevel,
     selectedGags,
   ]);
@@ -416,7 +436,12 @@ export default function App() {
       if (typeof (s as any).isTargetAlreadyLured === 'boolean') setIsTargetAlreadyLured((s as any).isTargetAlreadyLured);
       if ((s as any).targetHpOverride === null || Number.isFinite(Number((s as any).targetHpOverride))) {
         const v = (s as any).targetHpOverride;
-        setTargetHpText(v == null ? '' : String(Math.max(1, Math.floor(Number(v)))));
+        setTargetHpText(v == null ? '' : String(Math.max(0, Math.floor(Number(v)))));
+      }
+
+      if ((s as any).targetCurrentDamage === null || Number.isFinite(Number((s as any).targetCurrentDamage))) {
+        const v = (s as any).targetCurrentDamage;
+        setCurrentDmgText(v == null ? '' : String(Math.max(0, Math.floor(Number(v)))));
       }
 
       if (Number.isFinite(Number(s.maxGenerated))) {
@@ -528,10 +553,10 @@ export default function App() {
     if (effectiveTargetLevel === null) return;
     void computeFillToKillOptions({
       targetLevel: effectiveTargetLevel,
-      currentGags: effectiveSelectedGags.slice(0, maxToons),
+      currentGags: calcSelectedGags.slice(0, maxToons),
       maxToons,
       isTargetAlreadyLured,
-      targetHpOverride,
+      targetHpOverride: effectiveTargetHpOverride,
       excludeLevels,
       enabledTracks,
       sortMode,
@@ -545,7 +570,7 @@ export default function App() {
     });
   }, [
     effectiveTargetLevel,
-    effectiveSelectedGags,
+    calcSelectedGags,
     maxToons,
     excludeLevels,
     enabledTracks,
@@ -557,7 +582,7 @@ export default function App() {
     toonRestrictions,
     maxGenerated,
     isTargetAlreadyLured,
-    targetHpOverride,
+    effectiveTargetHpOverride,
     computeFillToKillOptions,
   ]);
 
@@ -594,20 +619,20 @@ export default function App() {
   //  - 1.0 = appears in the best (highest-ranked) combos
   //  - 0.0 = only appears in the worst combos
   // This allows highlighting *many* candidates with a gradient, not just the top 3.
-    // Orange highlight hints: based on current selection (including hover preview),
+  // Orange highlight hints: based on current selection (including hover preview),
   // highlight any gag that would *improve* the one-turn KO chance if you add one copy of it next.
   // Brightness is relative among all highlighted gags (worst = muted orange, best = bright orange).
-    // Orange highlight hints: based on current selection (including hover preview),
+  // Orange highlight hints: based on current selection (including hover preview),
   // highlight any gag that would make your *all-hit* damage reach (or exceed) the selected Cog's HP.
   // Brightness reflects the one-turn KO chance for (current selection + that gag).
   const paletteHighlightStrengths = useMemo(() => {
     if (!showKillHints) return {} as Partial<Record<string, number>>;
     if (effectiveTargetLevel === null) return {} as Partial<Record<string, number>>;
-    if (effectiveSelectedGags.length >= maxToons) return {} as Partial<Record<string, number>>;
+    if (calcSelectedGags.length >= maxToons) return {} as Partial<Record<string, number>>;
 
     const hp = targetHpOverride ?? calculateCogHealth(effectiveTargetLevel);
 
-    const baseAllHitDamage = calculateTotalDamage(effectiveSelectedGags, { lured: isTargetAlreadyLured }).totalDamage;
+    const baseAllHitDamage = calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured }).totalDamage;
     if (baseAllHitDamage >= hp) return {} as Partial<Record<string, number>>;
 
     const keyOf = (g: Pick<GagInfo, 'track' | 'level' | 'name'>) => `${g.track}:${g.level}:${g.name}`;
@@ -620,7 +645,7 @@ export default function App() {
 
       for (const gag of t.gags) {
         const next: GagInstance[] = [
-          ...effectiveSelectedGags,
+          ...calcSelectedGags,
           {
             ...gag,
             id: 'HINT',
@@ -648,7 +673,8 @@ export default function App() {
       out[s.key] = Math.max(0, Math.min(1, t));
     }
     return out;
-  }, [showKillHints, effectiveTargetLevel, effectiveSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, targetHpOverride]);
+  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, targetHpOverride]);
+
 
 
 
@@ -661,18 +687,18 @@ export default function App() {
       }}
     >
       <div className="min-h-screen w-full bg-slate-950 text-white">
-            <Header
-              soundEnabled={soundEnabled}
-              setSoundEnabled={setSoundEnabled}
-              onOpenSettings={() => setSettingsModalOpen(true)}
-            />
+        <Header
+          soundEnabled={soundEnabled}
+          setSoundEnabled={setSoundEnabled}
+          onOpenSettings={() => setSettingsModalOpen(true)}
+        />
 
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
           <div className="flex flex-col items-center gap-2">
             <div className="flex w-full flex-col items-center justify-center gap-3">
               <div className="flex w-full flex-col items-center gap-2">
                 <CogDamageTable
-                  selectedGags={effectiveSelectedGags}
+                  selectedGags={displaySelectedGags}
                   hoveredGag={undefined}
                   onLevelClick={handleCogLevelClick}
                   onLevelHover={handleCogLevelHover}
@@ -733,6 +759,32 @@ export default function App() {
                             }}
                             title="If set, KO% / kill combos will be computed against this remaining HP instead of the cog's full HP for the selected level."
                           />
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-200">
+                          <span className="font-bold text-slate-200">Current DMG</span>
+                          <input
+                            className="w-24 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-xs text-slate-100"
+                            placeholder="0"
+                            inputMode="numeric"
+                            value={currentDmgText}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === '' || /^\d+$/.test(v)) setCurrentDmgText(v);
+                            }}
+                            title="If Remaining HP is blank, this damage is subtracted from the selected cog level's full HP to compute remaining HP for KO% / kill combos."
+                          />
+
+                          <button
+                            type="button"
+                            className="ml-1 rounded-md border border-slate-700 bg-slate-800/40 px-2 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-800/70"
+                            title="Clear Remaining HP + Current DMG"
+                            onClick={() => {
+                              setTargetHpText('');
+                              setCurrentDmgText('');
+                            }}
+                          >
+                            Clear
+                          </button>
                         </label>
                       </div>
                     </div>
@@ -890,8 +942,9 @@ export default function App() {
             <div className="space-y-3">
               <div className="w-full rounded-md border border-slate-800 bg-slate-900/50 p-3">
                 <CalculationDisplay
-                  selectedGags={effectiveSelectedGags}
+                  selectedGags={displaySelectedGags}
                   isTargetAlreadyLured={isTargetAlreadyLured}
+                  onAlreadyLuredChange={setIsTargetAlreadyLured}
                   onSelectionChanged={handleSelectionChanged}
                   totalDamage={totalDamage}
                   onGagHover={handleSelectedGagHover}
@@ -916,12 +969,12 @@ export default function App() {
                   </div>
                   <div>
                     <span className="font-bold text-white">Accuracy:</span>{' '}
-                    <span className="font-cog" title={effectiveSelectedGags.length ? accuracyExplanation : undefined}>
-                      {effectiveSelectedGags.length
+                    <span className="font-cog" title={calcSelectedGags.length ? accuracyExplanation : undefined}>
+                      {calcSelectedGags.length
                         ? `${(selectionAccuracy * 100).toFixed(1)}%`
                         : 'N/A'}
                     </span>
-                    {effectiveSelectedGags.length ? (
+                    {calcSelectedGags.length ? (
                       <>
                         <InfoTip text={accuracyExplanation} />
                         <span className="sr-only">Accuracy details</span>
@@ -983,7 +1036,7 @@ export default function App() {
                   targetLevel={effectiveTargetLevel}
                   isTargetAlreadyLured={isTargetAlreadyLured}
                   targetHpOverride={targetHpOverride}
-                  currentGags={effectiveSelectedGags}
+                  currentGags={calcSelectedGags}
                   options={fillOptions}
                   isLoading={isFillLoading}
                   sortMode={sortMode}

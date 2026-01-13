@@ -11,6 +11,7 @@ import { groupBy } from 'lodash-es';
 interface Props {
   selectedGags: GagInstance[];
   isTargetAlreadyLured?: boolean;
+  onAlreadyLuredChange?: (next: boolean) => void;
   onSelectionChanged: (gags: GagInstance[]) => void;
   totalDamage: number;
   onGagHover: (gag: GagInstance | undefined) => void;
@@ -19,6 +20,7 @@ interface Props {
 export default function CalculationDisplay({
   selectedGags,
   isTargetAlreadyLured = false,
+  onAlreadyLuredChange,
   onSelectionChanged,
   totalDamage,
   onGagHover,
@@ -50,10 +52,11 @@ export default function CalculationDisplay({
           <Gag
             className="opacity-70"
             disabled
+            disabledVariant="soft"
             gag={luredGag}
-            onGagClick={() => {}}
-            onMouseOver={() => {}}
-            onMouseLeave={() => {}}
+            onGagClick={() => onAlreadyLuredChange?.(false)}
+            onMouseOver={() => { }}
+            onMouseLeave={() => { }}
           />
           <span className="text-yellow-800/40 text-xl hidden lg:block lg:text-2xl">)</span>
           <span className="ml-2 text-yellow-800/40 text-xl hidden lg:block lg:text-2xl">
@@ -85,10 +88,11 @@ export default function CalculationDisplay({
               key="lured-gag"
               className="opacity-70"
               disabled
+              disabledVariant="soft"
               gag={luredGag}
-              onGagClick={() => {}}
-              onMouseOver={() => {}}
-              onMouseLeave={() => {}}
+              onGagClick={() => onAlreadyLuredChange?.(false)}
+              onMouseOver={() => { }}
+              onMouseLeave={() => { }}
             />,
           );
           elements.push(
@@ -125,6 +129,11 @@ export default function CalculationDisplay({
 
         group.forEach((gag, i) => {
           const isPreview = !!gag.isPreview;
+          const isDuplicateTrap = i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap';
+          const isInactiveInLuredRound = isTargetAlreadyLured && (gag.track === 'Trap' || gag.track === 'Lure');
+
+          const allowSoftDisable = !isPreview && (isDuplicateTrap || isInactiveInLuredRound);
+
           if (i > 0) {
             elements.push(
               <span
@@ -139,10 +148,22 @@ export default function CalculationDisplay({
           elements.push(
             <Gag
               key={gag.id}
-              className={clsx(isPreview && 'opacity-60')}
+              className={clsx(
+                isPreview && 'opacity-60',
+                isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap') && 'opacity-70',
+              )}
               disabled={
                 isPreview ||
-                (i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap')
+                (!isPreview &&
+                  ((isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap')) ||
+                    (i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap')))
+              }
+              disabledVariant={
+                !isPreview &&
+                  ((isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap')) ||
+                    (i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap'))
+                  ? 'soft'
+                  : undefined
               }
               gag={gag}
               onGagClick={() => {
