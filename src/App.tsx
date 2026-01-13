@@ -78,6 +78,7 @@ export default function App() {
   const preferAccuracy = sortMode === 'accuracy';
   const [hideOverkillAdditions, setHideOverkillAdditions] = useState(true);
   const [maxGenerated, setMaxGenerated] = useState(DEFAULT_MAX_GENERATED);
+  const [maxDisplayed, setMaxDisplayed] = useState(20);
 
   const [showKillHints, setShowKillHints] = useState(true);
   const [greyOutExcludedLevels, setGreyOutExcludedLevels] = useState(true);
@@ -565,7 +566,7 @@ export default function App() {
       preferAccuracy,
       hideOverkillAdditions,
       toonRestrictions,
-      maxResults: 12,
+      maxResults: maxDisplayed,
       maxGenerated,
     });
   }, [
@@ -581,6 +582,7 @@ export default function App() {
     hideOverkillAdditions,
     toonRestrictions,
     maxGenerated,
+    maxDisplayed,
     isTargetAlreadyLured,
     effectiveTargetHpOverride,
     computeFillToKillOptions,
@@ -603,6 +605,11 @@ export default function App() {
   const handleMaxGeneratedChange = useCallback((nextMaxGenerated: number) => {
     const safe = Math.max(50, Math.min(50000, Math.floor(nextMaxGenerated || 0)));
     setMaxGenerated(safe);
+  }, []);
+
+  const handleMaxDisplayedChange = useCallback((nextMaxDisplayed: number) => {
+    const safe = Math.max(5, Math.min(100, Math.floor(nextMaxDisplayed || 20)));
+    setMaxDisplayed(safe);
   }, []);
 
   // NOTE: Settings JSON export/import and Reset to Defaults are implemented earlier in this file.
@@ -693,7 +700,7 @@ export default function App() {
           onOpenSettings={() => setSettingsModalOpen(true)}
         />
 
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
+        <div className="mx-4 flex w-full max-w-7xl flex-col gap-4 p-4 pb-[50vh]">
           <div className="flex flex-col items-center gap-2">
             <div className="flex w-full flex-col items-center justify-center gap-3">
               <div className="flex w-full flex-col items-center gap-2">
@@ -1049,6 +1056,8 @@ export default function App() {
                   onHideOverkillChange={handleHideOverkillChange}
                   maxGenerated={maxGenerated}
                   onMaxGeneratedChange={handleMaxGeneratedChange}
+                  maxDisplayed={maxDisplayed}
+                  onMaxDisplayedChange={handleMaxDisplayedChange}
                   onApply={applyAddedGags}
                 />
               ) : (

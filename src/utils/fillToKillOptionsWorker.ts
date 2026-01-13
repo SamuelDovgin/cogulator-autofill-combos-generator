@@ -741,7 +741,7 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
     ? filterSupersetsWithNoDisplayedAccuracyGain(filterEquivalentOverkill(allOptions))
     : allOptions;
 
-  const maxResults = req.maxResults ?? (req as any).toggles?.maxResults ?? 12;
+  const maxResults = req.maxResults ?? (req as any).toggles?.maxResults ?? 20;
 
   const sorted =
     sortMode === 'weighted'

@@ -53,6 +53,8 @@ interface Props {
   onHideOverkillChange: (hide: boolean) => void;
   maxGenerated: number;
   onMaxGeneratedChange: (next: number) => void;
+  maxDisplayed: number;
+  onMaxDisplayedChange: (next: number) => void;
   onApply: (added: GagInfo[]) => void;
 }
 
@@ -73,6 +75,8 @@ export function KillOptionsTable({
   onHideOverkillChange,
   maxGenerated,
   onMaxGeneratedChange,
+  maxDisplayed,
+  onMaxDisplayedChange,
   onApply,
 }: Props) {
   const scenarioKey = `lvl:${targetLevel}|hp:${targetHpOverride ?? 'full'}|lured:${isTargetAlreadyLured ? 1 : 0}|toons:${currentGags.length}`;
@@ -316,6 +320,22 @@ export function KillOptionsTable({
                 className="w-[86px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
               />
             </label>
+
+            <label className="flex items-center gap-2 text-[11px]">
+              <span className="text-slate-300">Max shown</span>
+              <input
+                type="number"
+                min={5}
+                max={100}
+                step={5}
+                value={maxDisplayed}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  onMaxDisplayedChange(Number.isFinite(v) ? v : 20);
+                }}
+                className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
+              />
+            </label>
           </div>
         </div>
       </div>
@@ -374,9 +394,9 @@ export function KillOptionsTable({
           No valid one-turn kill found with the current constraints / toon count.
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[600px] min-h-[300px] overflow-y-auto overflow-x-hidden pr-3">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-slate-300/80">
+            <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wider text-slate-300/80">
               <tr>
                 <th className="py-2 pr-3">Add</th>
                 <th className="py-2 pr-3">Toons</th>
