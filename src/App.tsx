@@ -651,7 +651,7 @@ export default function App() {
     const hp = targetHpOverride ?? calculateCogHealth(effectiveTargetLevel);
 
     const baseAllHitDamage = calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured }).totalDamage;
-    if (baseAllHitDamage >= hp) return {} as Partial<Record<string, number>>;
+    const alreadyKills = baseAllHitDamage >= hp;
 
     const keyOf = (g: Pick<GagInfo, 'track' | 'level' | 'name'>) => `${g.track}:${g.level}:${g.name}`;
 
@@ -672,7 +672,10 @@ export default function App() {
         ];
 
         const dmg = calculateTotalDamage(next, { lured: isTargetAlreadyLured }).totalDamage;
-        if (dmg < hp) continue;
+
+        // If already kills: highlight ALL gags (they all result in overkill).
+        // If doesn't kill: only highlight gags that make it reach kill threshold.
+        if (!alreadyKills && dmg < hp) continue;
 
         const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride });
         scored.push({ key: keyOf(gag), p });
