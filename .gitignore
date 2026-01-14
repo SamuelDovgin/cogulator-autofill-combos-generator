@@ -127,3 +127,7 @@ dist
 .pnp.*
 *.DS_Store
 .DS_Store
+
+# Local Claude/assistant transient files
+.claude/
+tmpclaude-*
