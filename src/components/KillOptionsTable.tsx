@@ -84,12 +84,12 @@ export function KillOptionsTable({
   }, [scenarioKey]);
   const hp = useMemo(() => (targetHpOverride ?? calculateCogHealth(targetLevel)), [targetLevel, targetHpOverride]);
   const currentTotal = useMemo(
-    () => calculateTotalDamage(currentGags).totalDamage,
-    [currentGags],
+    () => calculateTotalDamage(currentGags, { lured: isTargetAlreadyLured }).totalDamage,
+    [currentGags, isTargetAlreadyLured],
   );
   const currentAccuracy = useMemo(
     () => calculateComboAccuracy(currentGags, targetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride }),
-    [currentGags, targetLevel],
+    [currentGags, targetLevel, isTargetAlreadyLured, targetHpOverride],
   );
 
   const rowTooltips = useMemo(() => {
@@ -142,17 +142,17 @@ export function KillOptionsTable({
       const scoreTip =
         sortMode === 'weighted'
           ? [
-              'Weighted score details:',
-              `  Score = wAcc*Acc + wLevels*Levels + wTracks*Tracks`,
-              `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
-              `  Acc (0..1) = ${accScore.toFixed(4)}`,
-              `  Levels (0..1) = ${conserveScore.toFixed(4)}  (lower is better; normalized from levelMetric)`,
-              `    levelMetric = maxEff*10 + avgEff`,
-              `    maxEff=${m.maxEff.toFixed(2)}, avgEff=${m.avgEff.toFixed(2)}, levelMetric=${m.levelMetric.toFixed(2)}`,
-              `  Tracks (0..1) = ${tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
-              `    trackCount=${m.trackCount}`,
-              `  WeightedScore = ${weightedScore.toFixed(4)}`,
-            ].join('\n')
+            'Weighted score details:',
+            `  Score = wAcc*Acc + wLevels*Levels + wTracks*Tracks`,
+            `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
+            `  Acc (0..1) = ${accScore.toFixed(4)}`,
+            `  Levels (0..1) = ${conserveScore.toFixed(4)}  (lower is better; normalized from levelMetric)`,
+            `    levelMetric = maxEff*10 + avgEff`,
+            `    maxEff=${m.maxEff.toFixed(2)}, avgEff=${m.avgEff.toFixed(2)}, levelMetric=${m.levelMetric.toFixed(2)}`,
+            `  Tracks (0..1) = ${tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
+            `    trackCount=${m.trackCount}`,
+            `  WeightedScore = ${weightedScore.toFixed(4)}`,
+          ].join('\n')
           : '';
 
       return scoreTip ? `${accTip}\n\n${scoreTip}` : accTip;
@@ -163,11 +163,11 @@ export function KillOptionsTable({
 
   return (
     <div className="mt-3 w-full rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 md:p-4">
-        <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-          <div className="font-minnie text-lg md:text-xl text-white">
-            Kill combos for <span className="text-yellow-300">Level {targetLevel}</span>{' '}
-            <span className="opacity-70">(HP: {hp})</span>
-          </div>
+      <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <div className="font-minnie text-lg md:text-xl text-white">
+          Kill combos for <span className="text-yellow-300">Level {targetLevel}</span>{' '}
+          <span className="opacity-70">(HP: {hp})</span>
+        </div>
         <div className="text-xs md:text-sm text-slate-300 space-y-1">
           <div>
             Current damage: <span className="font-bold text-red-300">- {currentTotal}</span>
@@ -180,8 +180,8 @@ export function KillOptionsTable({
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-[11px] uppercase tracking-wide text-slate-400">Sort:</span>
-            
-<div className="flex overflow-hidden rounded-md border border-blue-800">
+
+            <div className="flex overflow-hidden rounded-md border border-blue-800">
               <button
                 type="button"
                 onClick={() => onSortModeChange('accuracy')}
@@ -377,14 +377,14 @@ export function KillOptionsTable({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-slate-300/80">
-            <tr>
-              <th className="py-2 pr-3">Add</th>
-              <th className="py-2 pr-3">Toons</th>
-              <th className="py-2 pr-3">Total</th>
-              <th className="py-2 pr-3">Acc</th>
-              <th className="py-2 pr-3">Over</th>
-              <th className="py-2 pr-3"></th>
-            </tr>
+              <tr>
+                <th className="py-2 pr-3">Add</th>
+                <th className="py-2 pr-3">Toons</th>
+                <th className="py-2 pr-3">Total</th>
+                <th className="py-2 pr-3">Acc</th>
+                <th className="py-2 pr-3">Over</th>
+                <th className="py-2 pr-3"></th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60">
               {options.map((opt, idx) => {

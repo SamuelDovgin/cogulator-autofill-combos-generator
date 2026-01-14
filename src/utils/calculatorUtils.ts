@@ -128,10 +128,11 @@ export function calculateComboAccuracy(
   const trackExpByTrack = buildTrackExpMap(gags);
   const initialLured = !!options?.initialLured;
   const hp = (options?.targetHpOverride ?? null) !== null && Number.isFinite(Number(options?.targetHpOverride))
-    ? Math.max(1, Math.floor(Number(options?.targetHpOverride)))
+    ? Math.max(0, Math.floor(Number(options?.targetHpOverride)))
     : calculateCogHealth(level);
 
-  const trapGags = trackUsage.get('Trap') ?? [];
+  // Only one Trap can be active on a target; extra Trap gags are redundant.
+  const trapGags = (trackUsage.get('Trap') ?? []).slice(0, 1);
   const lureGags = trackUsage.get('Lure') ?? [];
   const orderedTracks = TRACK_ORDER.filter(
     (track) =>
@@ -175,12 +176,12 @@ export function calculateComboAccuracy(
         onHitGags = [...hitGags, ...lureGags];
       } else {
         hitProb = calculateLureHitChance(
-        lureGags,
-        trapGags.length,
-        level,
-        trackExpByTrack.get('Lure') ?? 0,
-        state.stunBonus,
-      );
+          lureGags,
+          trapGags.length,
+          level,
+          trackExpByTrack.get('Lure') ?? 0,
+          state.stunBonus,
+        );
       }
       if (hitProb > 0) {
         if (state.luredActive) {
@@ -275,7 +276,8 @@ export function explainComboAccuracy(
     trackUsage.set(gag.track, [...(trackUsage.get(gag.track) ?? []), gag]);
   }
 
-  const trapGags = trackUsage.get('Trap') ?? [];
+  // Only one Trap can be active on a target; extra Trap gags are redundant.
+  const trapGags = (trackUsage.get('Trap') ?? []).slice(0, 1);
   const lureGags = trackUsage.get('Lure') ?? [];
 
   const trackExpByTrack = buildTrackExpMap(gags);
@@ -306,7 +308,7 @@ export function explainComboAccuracy(
       if (state.luredActive) return { p: 1, desc: 'Lure: target already lured => treated as no-op (100%)' };
 
       const baseAcc = lureGags.reduce((acc, gag) => Math.max(acc, getGagAccuracy(gag)), 0);
-      const trapBonus = trapGags.length > 0 ? 10 + Math.max(0, trapGags.length - 1) * 5 : 0;
+      const trapBonus = trapGags.length > 0 ? 10 : 0;
       const lureComboBonus = calculateLureComboBonus(lureGags);
       const exp = trackExpByTrack.get('Lure') ?? 0;
       const atkAcc = applyAccuracyCaps(
@@ -436,15 +438,15 @@ function calculateLureHitChance(
     (acc, gag) => Math.max(acc, getGagAccuracy(gag)),
     0,
   );
-  const trapBonus = trapCount > 0 ? 10 + Math.max(0, trapCount - 1) * 5 : 0;
+  const trapBonus = trapCount > 0 ? 10 : 0;
   const lureComboBonus = calculateLureComboBonus(lureGags);
   const atkAcc = applyAccuracyCaps(
     baseAcc +
-      trackExp +
-      getTargetDefense(targetLevel) +
-      trapBonus +
-      lureComboBonus +
-      stunBonus,
+    trackExp +
+    getTargetDefense(targetLevel) +
+    trapBonus +
+    lureComboBonus +
+    stunBonus,
     'Lure',
   );
   return atkAcc / 100;
