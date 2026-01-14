@@ -31,6 +31,7 @@ type ComputeArgs = {
   sortMode: SortMode;
   sortWeights: SortWeights;
   gagConserveWeights: GagConserveWeights;
+  lureTrackMultiplier?: number;
   preferAccuracy: boolean; // back-compat (ignored when sortMode='weighted')
   hideOverkillAdditions: boolean;
   toonRestrictions?: ToonRestriction[];
@@ -81,6 +82,7 @@ export function useFillToKillOptions() {
       targetLevel,
       isTargetAlreadyLured,
       targetHpOverride,
+      lureTrackMultiplier,
       currentGags,
       maxToons,
       excludeLevels,
@@ -127,6 +129,7 @@ export function useFillToKillOptions() {
           sortMode,
           sortWeights,
           gagConserveWeights,
+          lureTrackMultiplier,
           isTargetAlreadyLured,
           targetHpOverride,
         },
