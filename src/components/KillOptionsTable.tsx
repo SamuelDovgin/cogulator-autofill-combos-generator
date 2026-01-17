@@ -14,6 +14,7 @@ import ComboPreview from './ComboPreview';
 import { findCanonicalGag } from '../utils/gagLookup';
 import { loadFavoritesForKey, toggleFavoriteForKey } from '../storage/favorites';
 import type { FavoriteCombo } from '../storage/favorites';
+import AccuracyPopover from './AccuracyPopover';
 
 const formatAccuracy = (value: number) =>
   Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '0.0%';
@@ -486,11 +487,11 @@ export function KillOptionsTable({
                     </td>
                     <td className="py-2 pr-3 tabular-nums text-slate-200">{toonsUsed}</td>
                     <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.totalDamage}</td>
-                    <td
-                      className="py-2 pr-3 tabular-nums text-slate-200"
-                      title={rowTooltips[idx]}
-                    >
-                      {formatAccuracy(opt.accuracy)}
+                    <td className="py-2 pr-3 text-slate-200">
+                      <AccuracyPopover
+                        accuracy={opt.accuracy}
+                        explanation={rowTooltips[idx]}
+                      />
                     </td>
                     <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.overkill}</td>
                     <td className="py-2 pr-0 text-right">

@@ -189,7 +189,8 @@ export function calculateComboAccuracy(
           onHitState.luredActive = true;
           onHitGags = [...hitGags, ...lureGags];
         } else if (trapGags.length > 0) {
-          onHitState.stunBonus = clampStunBonus(onHitState.stunBonus + 30);
+          // Trap activation grants +50% stun bonus (v4.0.5)
+          onHitState.stunBonus = clampStunBonus(onHitState.stunBonus + 50);
           onHitState.luredActive = false;
           onHitGags = [...hitGags, ...lureGags, ...trapGags];
         } else {
@@ -291,7 +292,7 @@ export function explainComboAccuracy(
   lines.push(`Tracks resolved: ${orderedTracks.join(' -> ') || '(none)'}`);
   lines.push('Rules summary:');
   lines.push('- Same track + same target: all gags in that track either hit or miss together.');
-  lines.push('- Stun: each hit from Throw/Squirt/Sound adds +25 accuracy (stacking up to +100).');
+  lines.push('- Stun: each hit from Throw/Squirt/Sound adds +25 accuracy (capped at +75). Trap activation adds +50.');
   lines.push('- Lured target: Throw/Squirt/Sound auto-hit; Drop auto-miss; first successful damage ends lure.');
   if (trapGags.length) lines.push('- Trap triggers only if Lure hits (Trap itself is not an accuracy roll).');
   if ((options?.targetHpOverride ?? null) !== null) lines.push('- KO check uses Remaining HP override.');
@@ -308,7 +309,8 @@ export function explainComboAccuracy(
       if (state.luredActive) return { p: 1, desc: 'Lure: target already lured => treated as no-op (100%)' };
 
       const baseAcc = lureGags.reduce((acc, gag) => Math.max(acc, getGagAccuracy(gag)), 0);
-      const trapBonus = trapGags.length > 0 ? 10 : 0;
+      // Trap bonus: +10% base, +5% per extra trap (v4.0.5)
+      const trapBonus = trapGags.length > 0 ? 10 + Math.max(0, trapGags.length - 1) * 5 : 0;
       const lureComboBonus = calculateLureComboBonus(lureGags);
       const exp = trackExpByTrack.get('Lure') ?? 0;
       const atkAcc = applyAccuracyCaps(
@@ -380,7 +382,8 @@ export function explainComboAccuracy(
           onHitGags = [...hitGags, ...lureGags];
         } else if (trapGags.length > 0) {
           // Lure hits + there is a trap => apply trap (as "hit") and stop lure for the round
-          onHitState.stunBonus = clampStunBonus(onHitState.stunBonus + 30);
+          // Trap activation grants +50% stun bonus (v4.0.5)
+          onHitState.stunBonus = clampStunBonus(onHitState.stunBonus + 50);
           onHitState.luredActive = false;
           onHitGags = [...hitGags, ...lureGags, ...trapGags];
         } else {
@@ -438,7 +441,8 @@ function calculateLureHitChance(
     (acc, gag) => Math.max(acc, getGagAccuracy(gag)),
     0,
   );
-  const trapBonus = trapCount > 0 ? 10 : 0;
+  // Trap bonus: +10% base, +5% per extra trap (v4.0.5)
+  const trapBonus = trapCount > 0 ? 10 + Math.max(0, trapCount - 1) * 5 : 0;
   const lureComboBonus = calculateLureComboBonus(lureGags);
   const atkAcc = applyAccuracyCaps(
     baseAcc +
