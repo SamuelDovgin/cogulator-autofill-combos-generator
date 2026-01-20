@@ -11,12 +11,14 @@ export function CogDamageTable({
   onLevelClick,
   onLevelHover,
   activeLevel,
+  isTargetAlreadyLured = false,
 }: {
   selectedGags: GagInfo[];
   hoveredGag: GagInfo | undefined;
   onLevelClick?: (level: number) => void;
   onLevelHover?: (level: number | undefined) => void;
   activeLevel?: number | null;
+  isTargetAlreadyLured?: boolean;
 }) {
   const hypotheticalGags = useMemo(
     () => hoveredGag && [...selectedGags, hoveredGag],
@@ -30,12 +32,14 @@ export function CogDamageTable({
           damage={
             calculateTotalDamage(selectedGags, {
               level: i + 1,
+              lured: isTargetAlreadyLured,
             }).totalDamage
           }
           hypotheticalDamage={
             hypotheticalGags &&
             calculateTotalDamage(hypotheticalGags, {
               level: i + 1,
+              lured: isTargetAlreadyLured,
             }).totalDamage
           }
           key={i}

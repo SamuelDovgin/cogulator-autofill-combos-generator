@@ -210,12 +210,15 @@ export default function CalculationDisplay({
       <button
         className="cursor-pointer"
         type="button"
-        onClick={() => onSelectionChanged([])}
+        onClick={() => {
+          onSelectionChanged([]);
+          onAlreadyLuredChange?.(false);
+        }}
       >
         <XIcon
           className={clsx(
             'h-8 w-8 text-red-500 ml-2',
-            selectedGags.length === 0 && 'opacity-50',
+            selectedGags.length === 0 && !isTargetAlreadyLured && 'opacity-50',
           )}
         />
       </button>

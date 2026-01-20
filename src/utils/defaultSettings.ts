@@ -38,39 +38,39 @@ export const DEFAULT_GAG_CONSERVE_WEIGHTS: GagConserveWeights = {
   'Lure:6:Hypno Goggles': 0.06,
   'Lure:7:Presentation': 1,
 
-  // Sound - use freely (especially trunk)
+  // Sound - Aoogah raised to prefer Seltzer/Fruit combos over Sound
   'Sound:1:Bike Horn': 0,
   'Sound:2:Whistle': 0,
   'Sound:3:Bugle': 0.01,
-  'Sound:4:Aoogah': 0.02,
-  'Sound:5:Elephant Trunk': 0.04,
+  'Sound:4:Aoogah': 0.06,
+  'Sound:5:Elephant Trunk': 0.05,
   'Sound:6:Foghorn': 0.10,
   'Sound:7:Opera Singer': 1,
 
-  // Throw - moderate conservation (want to keep some)
+  // Throw - Fruit Pies lowered to prefer over Aoogah
   'Throw:1:Cupcake': 0.02,
-  'Throw:2:Fruit Pie Slice': 0.04,
+  'Throw:2:Fruit Pie Slice': 0.03,
   'Throw:3:Cream Pie Slice': 0.06,
-  'Throw:4:Whole Fruit Pie': 0.10,
+  'Throw:4:Whole Fruit Pie': 0.05,
   'Throw:5:Whole Cream Pie': 0.18,  // Higher than Hose for boiler battles
   'Throw:6:Birthday Cake': 0.30,
   'Throw:7:Wedding Cake': 1,
 
-  // Squirt - moderate conservation (slightly less than Throw)
+  // Squirt - moderate conservation (prefer Seltzer over Hose for lower cogs)
   'Squirt:1:Squirting Flower': 0.005,
   'Squirt:2:Glass of Water': 0.02,
   'Squirt:3:Squirt Gun': 0.04,
-  'Squirt:4:Seltzer Bottle': 0.07,
-  'Squirt:5:Fire Hose': 0.1,
+  'Squirt:4:Seltzer Bottle': 0.04,  // lowered to favor Safe+Seltzers combo
+  'Squirt:5:Fire Hose': 0.12,       // raised slightly to prefer Seltzer for lower cogs
   'Squirt:6:Storm Cloud': 0.2,
   'Squirt:7:Geyser': 1,
 
-  // Drop - use freely (want to spend these)
+  // Drop - use more freely (Safe+Squirt combos are efficient)
   'Drop:1:Flower Pot': 0.02,
   'Drop:2:Sandbag': 0.03,
-  'Drop:3:Anvil': 0.05,
-  'Drop:4:Big Weight': 0.08,
-  'Drop:5:Safe': 0.12,
-  'Drop:6:Grand Piano': 0.2,
+  'Drop:3:Anvil': 0.04,
+  'Drop:4:Big Weight': 0.05,        // should not exceed Safe
+  'Drop:5:Safe': 0.06,              // lowered to favor Safe+Seltzers combo for lvl 9
+  'Drop:6:Grand Piano': 0.18,
   'Drop:7:Toontanic': 1
 };
