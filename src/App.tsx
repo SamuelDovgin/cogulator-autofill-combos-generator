@@ -10,6 +10,7 @@ import GagTrack from './components/GagTrack';
 import { KillOptionsTable } from './components/KillOptionsTable';
 import SettingsJsonModal from './components/SettingsJsonModal';
 import InfoTip from './components/InfoTip';
+import AccuracyPopover from './components/AccuracyPopover';
 
 import { GagTracks } from './data/gagTracksInfo';
 import { calculateComboAccuracy, calculateCogHealth, calculateMaxCogLevel, calculateTotalDamage, explainComboAccuracy } from './utils/calculatorUtils';
@@ -83,8 +84,9 @@ export default function App() {
   const [gagConserveWeights, setGagConserveWeights] = useState<GagConserveWeights>({ ...DEFAULT_GAG_CONSERVE_WEIGHTS });
   const preferAccuracy = sortMode === 'accuracy';
   const [hideOverkillAdditions, setHideOverkillAdditions] = useState(true);
+  const [showScores, setShowScores] = useState(false);
   const [maxGenerated, setMaxGenerated] = useState(DEFAULT_MAX_GENERATED);
-  const [maxDisplayed, setMaxDisplayed] = useState(20);
+  const [maxDisplayed, setMaxDisplayed] = useState(30);
 
   const [showKillHints, setShowKillHints] = useState(true);
   const [greyOutExcludedLevels, setGreyOutExcludedLevels] = useState(true);
@@ -724,6 +726,7 @@ export default function App() {
                   onLevelClick={handleCogLevelClick}
                   onLevelHover={handleCogLevelHover}
                   activeLevel={effectiveTargetLevel}
+                  isTargetAlreadyLured={isTargetAlreadyLured}
                 />
 
                 {/* Controls under graph */}
@@ -800,10 +803,11 @@ export default function App() {
                           <button
                             type="button"
                             className="ml-1 rounded-md border border-slate-700 bg-slate-800/40 px-2 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-800/70"
-                            title="Clear Remaining HP + Current DMG"
+                            title="Clear Remaining HP, Current DMG, and Already Lured status"
                             onClick={() => {
                               setTargetHpText('');
                               setCurrentDmgText('');
+                              setIsTargetAlreadyLured(false);
                             }}
                           >
                             Clear
@@ -990,19 +994,17 @@ export default function App() {
                     <InfoTip text={maxCogExplanation} />
                     <span className="font-cog" title={maxCogExplanation}>- {maxCogLevel}</span>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-1">
                     <span className="font-bold text-white">Accuracy:</span>{' '}
-                    <span className="font-cog" title={calcSelectedGags.length ? accuracyExplanation : undefined}>
-                      {calcSelectedGags.length
-                        ? `${(selectionAccuracy * 100).toFixed(1)}%`
-                        : 'N/A'}
-                    </span>
                     {calcSelectedGags.length ? (
-                      <>
-                        <InfoTip text={accuracyExplanation} />
-                        <span className="sr-only">Accuracy details</span>
-                      </>
-                    ) : null}
+                      <AccuracyPopover
+                        accuracy={selectionAccuracy}
+                        explanation={accuracyExplanation}
+                        className="font-cog"
+                      />
+                    ) : (
+                      <span className="font-cog">N/A</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1070,6 +1072,8 @@ export default function App() {
                   onGagConserveWeightsChange={setGagConserveWeights}
                   hideOverkillAdditions={hideOverkillAdditions}
                   onHideOverkillChange={handleHideOverkillChange}
+                  showScores={showScores}
+                  onShowScoresChange={setShowScores}
                   maxGenerated={maxGenerated}
                   onMaxGeneratedChange={handleMaxGeneratedChange}
                   maxDisplayed={maxDisplayed}

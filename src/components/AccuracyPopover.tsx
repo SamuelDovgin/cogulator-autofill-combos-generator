@@ -198,7 +198,7 @@ export default function AccuracyPopover({ accuracy, explanation, className }: Ac
           ref={popoverRef}
           role="dialog"
           aria-modal="true"
-          className="absolute left-0 top-full z-50 mt-2 w-[400px] max-w-[90vw] rounded-lg border border-blue-700/60 bg-slate-900/98 p-4 shadow-xl backdrop-blur-sm"
+          className="absolute left-0 bottom-full z-50 mb-2 w-[400px] max-w-[90vw] rounded-lg border border-blue-700/60 bg-slate-900/98 p-4 shadow-xl backdrop-blur-sm"
           style={{ maxHeight: '70vh', overflowY: 'auto' }}
         >
           {/* Header */}

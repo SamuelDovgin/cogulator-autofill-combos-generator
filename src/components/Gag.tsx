@@ -79,10 +79,10 @@ export default function Gag({
     <div
       className={clsx(
         disabledClasses,
-        `group relative z-10 flex h-auto w-14 shrink-0 select-none items-center justify-center
+        `group relative z-10 hover:z-[100] focus:z-[100] flex h-auto w-14 shrink-0 select-none items-center justify-center
          rounded-2xl border-2 border-blue-500
-         bg-linear-to-b from-blue-500 to-[#00b4ff] 
-         px-2 pb-1 text-white shadow-gag 
+         bg-linear-to-b from-blue-500 to-[#00b4ff]
+         px-2 pb-1 text-white shadow-gag
          hover:shadow-xl hover:brightness-110 focus:brightness-110 active:brightness-75
          md:w-16 lg:w-20`,
         'overflow-visible',

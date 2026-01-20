@@ -37,6 +37,42 @@ function buildComboItems(gags: GagInfo[]) {
     .map(({ gag, count }) => ({ gag, count }));
 }
 
+function formatComboForCopy(
+  comboItems: { gag: GagInfo; count: number }[],
+  toonsUsed: number,
+  totalDamage: number,
+  accuracy: number,
+  overkill: number,
+  targetLevel: number,
+  scores?: {
+    weightedScore: number;
+    accScore: number;
+    conserveScore: number;
+    tracksScore: number;
+    levelMetric: number;
+    trackCount: number;
+  } | null,
+): string {
+  const gagsStr = comboItems
+    .map((ci) => (ci.count > 1 ? `${ci.count}x ${ci.gag.name}` : ci.gag.name))
+    .join(' + ');
+
+  const lines = [
+    `Combo: ${gagsStr}`,
+    `Target: Level ${targetLevel}`,
+    `Toons: ${toonsUsed} | Damage: ${totalDamage} | Accuracy: ${(accuracy * 100).toFixed(1)}% | Overkill: ${overkill}`,
+  ];
+
+  if (scores) {
+    lines.push(
+      `Score: ${scores.weightedScore.toFixed(3)} (A:${(scores.accScore * 100).toFixed(0)} C:${(scores.conserveScore * 100).toFixed(0)} T:${(scores.tracksScore * 100).toFixed(0)})`,
+      `  levelMetric: ${scores.levelMetric.toFixed(2)} | trackCount: ${scores.trackCount}`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
 interface Props {
   targetLevel: number;
   isTargetAlreadyLured: boolean;
@@ -52,6 +88,8 @@ interface Props {
   onGagConserveWeightsChange: (next: GagConserveWeights) => void;
   hideOverkillAdditions: boolean;
   onHideOverkillChange: (hide: boolean) => void;
+  showScores: boolean;
+  onShowScoresChange: (show: boolean) => void;
   maxGenerated: number;
   onMaxGeneratedChange: (next: number) => void;
   maxDisplayed: number;
@@ -78,6 +116,8 @@ export function KillOptionsTable({
   onGagConserveWeightsChange,
   hideOverkillAdditions,
   onHideOverkillChange,
+  showScores,
+  onShowScoresChange,
   maxGenerated,
   onMaxGeneratedChange,
   maxDisplayed,
@@ -105,17 +145,17 @@ export function KillOptionsTable({
     [currentGags, targetLevel, isTargetAlreadyLured, targetHpOverride],
   );
 
-  const rowTooltips = useMemo(() => {
-    const combinedGagsByOption = options.map((opt) => [...currentGags, ...opt.addedGags]);
+  const rowScores = useMemo(() => {
+    if (options.length === 0) return [];
 
     // Precompute weighted-score components (mirrors worker logic).
     const weights = sortWeights ?? { accuracy: 1, levels: 1, tracks: 1 };
     const wAcc = weights.accuracy ?? 0;
-    const wLevels = weights.levels ?? 0;
+    const wLevels = weights.conserve ?? 0;
     const wTracks = weights.tracks ?? 0;
 
     const getWeightForGag = (g: GagInfo) => {
-      const key = `${g.track}:${g.name}`;
+      const key = `${g.track}:${g.level}:${g.name}`;
       const v = gagConserveWeights?.[key];
       return typeof v === 'number' && Number.isFinite(v) ? v : 0.5;
     };
@@ -151,37 +191,62 @@ export function KillOptionsTable({
     const maxTracks = Math.max(...levelMetrics.map((m) => m.trackCount));
 
     const norm01 = (v: number, min: number, max: number) =>
-      max === min ? 0 : (v - min) / (max - min);
+      max === min ? 1 : (v - min) / (max - min);
 
     return options.map((opt, idx) => {
-      const allGags = combinedGagsByOption[idx];
-      const accTip = explainComboAccuracy(allGags, targetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride });
-
       const m = levelMetrics[idx];
       const accScore = opt.accuracy;
       const conserveScore = 1 - norm01(m.levelMetric, minLevel, maxLevel);
       const tracksScore = 1 - norm01(m.trackCount, minTracks, maxTracks);
       const weightedScore = wAcc * accScore + wLevels * conserveScore + wTracks * tracksScore;
 
+      return {
+        weightedScore,
+        accScore,
+        conserveScore,
+        tracksScore,
+        levelMetric: m.levelMetric,
+        trackCount: m.trackCount,
+        maxEff: m.maxEff,
+        avgEff: m.avgEff,
+      };
+    });
+  }, [options, currentGags, sortWeights, gagConserveWeights, lureTracksMultiplierEnabled, lureTracksMultiplier]);
+
+  const rowTooltips = useMemo(() => {
+    const combinedGagsByOption = options.map((opt) => [...currentGags, ...opt.addedGags]);
+
+    const weights = sortWeights ?? { accuracy: 1, levels: 1, tracks: 1 };
+    const wAcc = weights.accuracy ?? 0;
+    const wLevels = weights.conserve ?? 0;
+    const wTracks = weights.tracks ?? 0;
+
+    return options.map((opt, idx) => {
+      const allGags = combinedGagsByOption[idx];
+      const accTip = explainComboAccuracy(allGags, targetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride });
+
+      const s = rowScores[idx];
+      if (!s) return accTip;
+
       const scoreTip =
         sortMode === 'weighted'
           ? [
             'Weighted score details:',
-            `  Score = wAcc*Acc + wLevels*Levels + wTracks*Tracks`,
+            `  Score = wAcc*Acc + wLevels*Conserve + wTracks*Tracks`,
             `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
-            `  Acc (0..1) = ${accScore.toFixed(4)}`,
-            `  Levels (0..1) = ${conserveScore.toFixed(4)}  (lower is better; normalized from levelMetric)`,
+            `  Acc (0..1) = ${s.accScore.toFixed(4)}`,
+            `  Conserve (0..1) = ${s.conserveScore.toFixed(4)}  (higher = uses lower-value gags)`,
             `    levelMetric = maxEff*10 + avgEff`,
-            `    maxEff=${m.maxEff.toFixed(2)}, avgEff=${m.avgEff.toFixed(2)}, levelMetric=${m.levelMetric.toFixed(2)}`,
-            `  Tracks (0..1) = ${tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
-            `    trackCount=${m.trackCount}`,
-            `  WeightedScore = ${weightedScore.toFixed(4)}`,
+            `    maxEff=${s.maxEff.toFixed(2)}, avgEff=${s.avgEff.toFixed(2)}, levelMetric=${s.levelMetric.toFixed(2)}`,
+            `  Tracks (0..1) = ${s.tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
+            `    trackCount=${s.trackCount}`,
+            `  WeightedScore = ${s.weightedScore.toFixed(4)}`,
           ].join('\n')
           : '';
 
       return scoreTip ? `${accTip}\n\n${scoreTip}` : accTip;
     });
-  }, [options, currentGags, targetLevel, sortMode, sortWeights, gagConserveWeights, lureTracksMultiplierEnabled, lureTracksMultiplier]);
+  }, [options, currentGags, targetLevel, sortMode, sortWeights, rowScores, isTargetAlreadyLured, targetHpOverride]);
 
   const favoriteIds = new Set(favorites.map((f) => f.id));
 
@@ -361,6 +426,16 @@ export function KillOptionsTable({
               Hide overkill additions
             </label>
 
+            {sortMode === 'weighted' && (
+              <label className="flex items-center gap-2 text-[11px]">
+                <input
+                  type="checkbox"
+                  checked={showScores}
+                  onChange={(e) => onShowScoresChange(e.target.checked)}
+                />
+                Show scores
+              </label>
+            )}
 
             <label className="flex items-center gap-2 text-[11px]">
               <span className="text-slate-300">Generation cap</span>
@@ -460,6 +535,7 @@ export function KillOptionsTable({
                 <th className="py-2 pr-3">Total</th>
                 <th className="py-2 pr-3">Acc</th>
                 <th className="py-2 pr-3">Over</th>
+                {sortMode === 'weighted' && showScores && <th className="py-2 pr-3">Score</th>}
                 <th className="py-2 pr-3"></th>
               </tr>
             </thead>
@@ -494,8 +570,41 @@ export function KillOptionsTable({
                       />
                     </td>
                     <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.overkill}</td>
+                    {sortMode === 'weighted' && showScores && rowScores[idx] && (
+                      <td className="py-2 pr-3 text-slate-200">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-yellow-300 tabular-nums">{rowScores[idx].weightedScore.toFixed(3)}</span>
+                          <div className="flex gap-1.5 text-[10px] text-slate-400">
+                            <span title="Accuracy component">A:{(rowScores[idx].accScore * 100).toFixed(0)}</span>
+                            <span title="Conserve component (higher = uses cheaper gags)">C:{(rowScores[idx].conserveScore * 100).toFixed(0)}</span>
+                            <span title="Tracks component (higher = fewer tracks)">T:{(rowScores[idx].tracksScore * 100).toFixed(0)}</span>
+                          </div>
+                        </div>
+                      </td>
+                    )}
                     <td className="py-2 pr-0 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = formatComboForCopy(
+                              comboItems,
+                              toonsUsed,
+                              opt.totalDamage,
+                              opt.accuracy,
+                              opt.overkill,
+                              targetLevel,
+                              rowScores[idx] ?? null,
+                            );
+                            navigator.clipboard.writeText(text).then(() => {
+                              // Could add a toast notification here
+                            });
+                          }}
+                          className="shrink-0 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-sm font-bold text-slate-300 hover:bg-blue-900 hover:text-white"
+                          title="Copy combo info to clipboard"
+                        >
+                          📋
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -535,12 +644,41 @@ export function KillOptionsTable({
         </div>
       )}
 
-      <div className="mt-2 text-xs text-slate-400/90">
-        {sortMode === 'accuracy'
-          ? 'Ranked by kill chance, then by gag level used.'
-          : sortMode === 'conserve'
-            ? 'Ranked by gag level used, then by kill chance.'
-            : 'Ranked by weighted score (accuracy, conserve levels, fewer tracks).'}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="text-xs text-slate-400/90">
+          {sortMode === 'accuracy'
+            ? 'Ranked by kill chance, then by gag level used.'
+            : sortMode === 'conserve'
+              ? 'Ranked by gag level used, then by kill chance.'
+              : 'Ranked by weighted score (accuracy, conserve levels, fewer tracks).'}
+        </div>
+        {options.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const allText = options
+                .map((opt, idx) => {
+                  const toonsUsed = currentGags.length + opt.addedGags.length;
+                  const comboItems = buildComboItems(opt.addedGags);
+                  return formatComboForCopy(
+                    comboItems,
+                    toonsUsed,
+                    opt.totalDamage,
+                    opt.accuracy,
+                    opt.overkill,
+                    targetLevel,
+                    rowScores[idx] ?? null,
+                  );
+                })
+                .join('\n\n---\n\n');
+              navigator.clipboard.writeText(allText);
+            }}
+            className="shrink-0 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-blue-900 hover:text-white"
+            title="Copy all visible combos to clipboard"
+          >
+            📋 Copy all ({options.length})
+          </button>
+        )}
       </div>
 
       {showGagWeights && (
