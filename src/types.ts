@@ -39,6 +39,8 @@ export interface CogStatus {
   lured?: boolean;
   level?: number;
   trapGag?: GagInfo;
+  /** When true, a trap was triggered this round and subsequent lures cannot re-lure the cog. */
+  trapTriggeredThisRound?: boolean;
 }
 
 export type GagInstance = GagInfo & {
