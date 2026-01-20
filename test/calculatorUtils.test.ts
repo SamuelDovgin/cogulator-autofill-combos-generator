@@ -143,3 +143,35 @@ describe('multiple group', () => {
     totalDamage: 168,
   });
 });
+
+describe('trap + multi-lure should not re-lure after trap triggers', () => {
+  // Bug fix: When a trap triggers, subsequent lures cannot re-lure the cog.
+  // In Toontown, you cannot lure a cog that just had its trap triggered in the same round.
+  // TNT (180) + $10 Bill (triggers trap) + Big Magnet (does nothing) + Fire Hose (30, no lure bonus)
+  // Total should be 210, NOT 225 (which would include a 15 lure bonus)
+  const gags = [
+    GAGS.TNT,
+    GAGS.TenDollarBill,
+    GAGS.BigMagnet,
+    GAGS.FireHose,
+  ];
+  const result = calculateTotalDamage(gags);
+  expectDamages(result, {
+    baseDamage: 210, // TNT 180 + Fire Hose 30
+    groupBonus: 0,
+    lureBonus: 0, // No lure bonus because trap triggered - cog is not lured
+    totalDamage: 210,
+  });
+});
+
+describe('single lure + trap + squirt still gets no lure bonus (trap consumed lure)', () => {
+  // When trap triggers, the cog is NOT lured afterward
+  const gags = [GAGS.TNT, GAGS.TenDollarBill, GAGS.FireHose];
+  const result = calculateTotalDamage(gags);
+  expectDamages(result, {
+    baseDamage: 210, // TNT 180 + Fire Hose 30
+    groupBonus: 0,
+    lureBonus: 0, // No lure bonus - trap consumed the lure effect
+    totalDamage: 210,
+  });
+});

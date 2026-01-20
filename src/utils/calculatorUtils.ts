@@ -530,10 +530,14 @@ function getTrackGagDamage(
     // (It should not trigger Trap, and it should not change the lured state.)
     if (cogStatus.lured) return [0, cogStatus];
 
+    // If a trap was already triggered this round, subsequent lures cannot re-lure the cog.
+    // In Toontown, you cannot lure a cog that just had its trap triggered in the same round.
+    if (cogStatus.trapTriggeredThisRound) return [0, cogStatus];
+
     // If there is a previous trap gag, apply the trap damage and do not set the cog status to lured
     if (cogStatus.trapGag) {
       const dmg = getGagDmg(cogStatus.trapGag);
-      return [dmg, { ...cogStatus, trapGag: undefined }];
+      return [dmg, { ...cogStatus, trapGag: undefined, trapTriggeredThisRound: true }];
     }
 
     return [0, { ...cogStatus, lured: true }];
