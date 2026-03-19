@@ -66,13 +66,17 @@ export default function GagTrack({
   return (
     <div
       className={clsx(
-        'flex w-full flex-col gap-2 rounded-[2%/45%] p-2 px-4 shadow-[0_5px_13px_1px_black]',
+        'relative w-max min-w-full overflow-visible',
         !isTrackEnabled && 'grayscale opacity-60',
       )}
-      style={{ backgroundColor: color }}
     >
-      <div className="flex w-full items-center gap-2">
-        <div className="text-lg font-bold uppercase text-black drop-shadow-box min-w-[72px] shrink-0 text-center">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[2%/45%] shadow-[0_5px_13px_1px_black]"
+        style={{ backgroundColor: color }}
+      />
+      <div className="relative z-10 flex w-max min-w-full items-center gap-2 p-2 px-4">
+        <div className="min-w-[72px] shrink-0 text-center text-lg font-bold uppercase text-black drop-shadow-box">
           {name}
         </div>
         {onToggleTrack && (
@@ -97,51 +101,53 @@ export default function GagTrack({
           </div>
         )}
         <div
-          className="flex flex-1 flex-nowrap items-center gap-2 overflow-x-auto overflow-y-visible pr-6"
-          style={{ scrollbarGutter: 'stable both-edges' }}
+          className="relative z-20 flex flex-nowrap items-center gap-2 pr-6"
         >
-          {filteredGags.map((gag) => (
-            (() => {
-              const excluded = isLevelExcluded(gag.level, gag.track as GagTrackName, excludeLevels);
-              const visualExcluded = excluded && !!greyOutExcludedLevels;
-              const key = gagKey(gag);
-              return (
-            <Gag
-              gag={gag}
-              disabled={gagSelectionDisabled || visualExcluded}
-              disabledVariant={
-                gagSelectionDisabled
-                  ? 'full'
-                  : visualExcluded
-                    ? 'soft'
-                    : undefined
-              }
-              highlightStrength={gagSelectionDisabled ? undefined : (highlightStrengths?.[key] as number | undefined)}
-              key={gag.name}
-              onBlur={() => {
-                onGagHover(undefined);
-              }}
-              onGagClick={(isOrganic) => {
-                if (gagSelectionDisabled) return;
-                onGagSelect({
-                  ...gag,
-                  isOrganic,
-                  id: getUniqueId(),
-                });
-                playClickSfx();
-              }}
-              onGagHover={(isOrganic) => {
-                if (gagSelectionDisabled) return;
-                onGagHover({ ...gag, isOrganic });
-                playHoverSfx();
-              }}
-              onMouseLeave={() => {
-                onGagHover(undefined);
-              }}
-            />
-              );
-            })()
-          ))}
+          {filteredGags.map((gag) => {
+            const excluded = isLevelExcluded(
+              gag.level,
+              gag.track as GagTrackName,
+              excludeLevels,
+            );
+            const visualExcluded = excluded && !!greyOutExcludedLevels;
+            const key = gagKey(gag);
+
+            return (
+              <Gag
+                gag={gag}
+                disabled={gagSelectionDisabled || visualExcluded}
+                disabledVariant={
+                  gagSelectionDisabled ? 'full' : visualExcluded ? 'soft' : undefined
+                }
+                highlightStrength={
+                  gagSelectionDisabled
+                    ? undefined
+                    : (highlightStrengths?.[key] as number | undefined)
+                }
+                key={gag.name}
+                onBlur={() => {
+                  onGagHover(undefined);
+                }}
+                onGagClick={(isOrganic) => {
+                  if (gagSelectionDisabled) return;
+                  onGagSelect({
+                    ...gag,
+                    isOrganic,
+                    id: getUniqueId(),
+                  });
+                  playClickSfx();
+                }}
+                onGagHover={(isOrganic) => {
+                  if (gagSelectionDisabled) return;
+                  onGagHover({ ...gag, isOrganic });
+                  playHoverSfx();
+                }}
+                onMouseLeave={() => {
+                  onGagHover(undefined);
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

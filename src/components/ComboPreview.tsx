@@ -13,9 +13,9 @@ export function ComboPreview({ items }: { items: ComboItem[] }) {
     );
 
     return (
-        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap">
+        <div className="flex max-w-full flex-wrap items-center gap-2 overflow-visible">
             {expanded.map((it, idx) => (
-                <div key={`${it.key}:${idx}`} className="flex items-center gap-2">
+                <div key={`${it.key}:${idx}`} className="flex shrink-0 items-center gap-2">
                     <div className="flex h-10 w-12 shrink-0 select-none items-center justify-center rounded-2xl border-2 border-blue-500 bg-gradient-to-b from-blue-500 to-[#00b4ff] px-2 pb-1 shadow-gag">
                         <GagIcon gag={it.gag} />
                     </div>

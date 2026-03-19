@@ -1,5 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 
 interface AccuracyPopoverProps {
   accuracy: number;
@@ -31,6 +38,22 @@ interface LeafNode {
   isKO: boolean;
   prob: string;
 }
+
+type PopoverPosition = {
+  top: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+  ready: boolean;
+};
+
+const INITIAL_POSITION: PopoverPosition = {
+  top: 0,
+  left: 0,
+  width: 400,
+  maxHeight: 560,
+  ready: false,
+};
 
 function parseExplanation(text: string): ParsedExplanation {
   const lines = text.split('\n');
@@ -141,6 +164,7 @@ function parseExplanation(text: string): ParsedExplanation {
 
 export default function AccuracyPopover({ accuracy, explanation, className }: AccuracyPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState<PopoverPosition>(INITIAL_POSITION);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -175,14 +199,217 @@ export default function AccuracyPopover({ accuracy, explanation, className }: Ac
     };
   }, [isOpen]);
 
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const popover = popoverRef.current;
+    if (!trigger || !popover) return;
+
+    const viewportPadding = 12;
+    const gap = 10;
+    const maxWidth = Math.min(400, window.innerWidth - viewportPadding * 2);
+    const triggerRect = trigger.getBoundingClientRect();
+
+    popover.style.width = `${maxWidth}px`;
+
+    const popoverHeight = popover.getBoundingClientRect().height;
+    const fitsAbove =
+      triggerRect.top - gap - popoverHeight >= viewportPadding;
+    const top = fitsAbove
+      ? triggerRect.top - popoverHeight - gap
+      : Math.min(
+          triggerRect.bottom + gap,
+          window.innerHeight - popoverHeight - viewportPadding,
+        );
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.left),
+      window.innerWidth - maxWidth - viewportPadding,
+    );
+
+    setPosition({
+      top: Math.max(viewportPadding, top),
+      left,
+      width: maxWidth,
+      maxHeight: Math.max(220, window.innerHeight - viewportPadding * 2),
+      ready: true,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+  }, [isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleViewportChange = () => updatePosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [isOpen, updatePosition]);
+
   const parsed = parseExplanation(explanation);
+  const popover =
+    isOpen && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={popoverRef}
+            role="dialog"
+            className="fixed z-[2000] rounded-lg border border-blue-700/60 bg-slate-900/98 p-4 shadow-2xl backdrop-blur-sm"
+            style={{
+              top: position.top,
+              left: position.left,
+              width: position.width,
+              maxHeight: position.maxHeight,
+              overflowY: 'auto',
+              visibility: position.ready ? 'visible' : 'hidden',
+            }}
+          >
+            <div className="mb-3 flex items-center justify-between border-b border-slate-700 pb-2">
+              <h3 className="text-sm font-bold text-white">Accuracy Breakdown</h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="text-slate-400 transition-colors hover:text-white"
+                aria-label="Close"
+              >
+                <span className="text-lg">&times;</span>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-md bg-blue-900/40 p-2">
+              <div className="text-xs uppercase tracking-wide text-slate-400">
+                One-Turn KO Chance
+              </div>
+              <div className="text-xl font-bold text-yellow-300">
+                {parsed.koProb || formatAccuracy(accuracy)}
+              </div>
+            </div>
+
+            <div className="mb-3 space-y-1 text-xs">
+              <div className="text-slate-300">{parsed.targetInfo}</div>
+              <div className="text-slate-300">{parsed.initialStatus}</div>
+              {parsed.tracks && (
+                <div className="text-slate-400">
+                  <span className="text-slate-500">Tracks:</span> {parsed.tracks}
+                </div>
+              )}
+            </div>
+
+            {parsed.calculations.length > 0 && (
+              <div className="mb-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-300">
+                  Calculation Steps
+                </div>
+                <div className="space-y-2">
+                  {parsed.calculations.map((calc, idx) => (
+                    <div key={idx} className="rounded-md bg-slate-800/60 p-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={clsx(
+                            'font-bold',
+                            calc.track === 'Lure' && 'text-green-400',
+                            calc.track === 'Sound' && 'text-purple-400',
+                            calc.track === 'Throw' && 'text-orange-400',
+                            calc.track === 'Squirt' && 'text-cyan-400',
+                            calc.track === 'Drop' && 'text-blue-400',
+                          )}
+                        >
+                          {calc.track}
+                        </span>
+                        <span
+                          className={clsx(
+                            'font-mono font-bold',
+                            calc.result.includes('100%') && 'text-green-400',
+                            calc.result.includes('0%') && 'text-red-400',
+                            !calc.result.includes('100%') &&
+                              !calc.result.includes('0%') &&
+                              'text-yellow-300',
+                          )}
+                        >
+                          {calc.result}
+                        </span>
+                      </div>
+                      {calc.formula && !calc.formula.includes('lured') && (
+                        <div className="mt-1 break-all font-mono text-[10px] text-slate-400">
+                          {calc.formula}
+                        </div>
+                      )}
+                      {calc.formula.includes('lured') && (
+                        <div className="mt-1 text-[10px] italic text-slate-500">
+                          {calc.formula}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {parsed.leafNodes.length > 0 && (
+              <div className="mb-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-300">
+                  Possible Outcomes
+                </div>
+                <div className="space-y-1">
+                  {parsed.leafNodes.map((leaf, idx) => (
+                    <div
+                      key={idx}
+                      className={clsx(
+                        'flex items-center justify-between rounded px-2 py-1 text-xs',
+                        leaf.isKO ? 'bg-green-900/30' : 'bg-red-900/30',
+                      )}
+                    >
+                      <span>
+                        <span className="font-mono">{leaf.damage}</span>
+                        <span className="text-slate-500"> dmg vs </span>
+                        <span className="font-mono">{leaf.hp}</span>
+                        <span className="text-slate-500"> HP</span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className={leaf.isKO ? 'text-green-400' : 'text-red-400'}>
+                          {leaf.isKO ? 'KO' : 'Survives'}
+                        </span>
+                        <span className="font-mono text-slate-400">({leaf.prob})</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {parsed.rules.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-slate-400 transition-colors hover:text-slate-300">
+                  Rules Reference
+                </summary>
+                <ul className="mt-2 space-y-1 text-slate-500">
+                  {parsed.rules.map((rule, idx) => (
+                    <li key={idx} className="border-l border-slate-700 pl-2">
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
-    <div className="relative inline-block">
+    <div className="inline-block">
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setPosition(INITIAL_POSITION);
+          setIsOpen((open) => !open);
+        }}
         className={clsx(
           'cursor-pointer tabular-nums underline decoration-dotted underline-offset-2 hover:text-yellow-300 transition-colors',
           className
@@ -192,134 +419,7 @@ export default function AccuracyPopover({ accuracy, explanation, className }: Ac
       >
         {formatAccuracy(accuracy)}
       </button>
-
-      {isOpen && (
-        <div
-          ref={popoverRef}
-          role="dialog"
-          aria-modal="true"
-          className="absolute left-0 bottom-full z-50 mb-2 w-[400px] max-w-[90vw] rounded-lg border border-blue-700/60 bg-slate-900/98 p-4 shadow-xl backdrop-blur-sm"
-          style={{ maxHeight: '70vh', overflowY: 'auto' }}
-        >
-          {/* Header */}
-          <div className="mb-3 flex items-center justify-between border-b border-slate-700 pb-2">
-            <h3 className="text-sm font-bold text-white">Accuracy Breakdown</h3>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white transition-colors"
-              aria-label="Close"
-            >
-              <span className="text-lg">&times;</span>
-            </button>
-          </div>
-
-          {/* KO Probability */}
-          <div className="mb-3 rounded-md bg-blue-900/40 p-2">
-            <div className="text-xs text-slate-400 uppercase tracking-wide">One-Turn KO Chance</div>
-            <div className="text-xl font-bold text-yellow-300">{parsed.koProb || formatAccuracy(accuracy)}</div>
-          </div>
-
-          {/* Target Info */}
-          <div className="mb-3 space-y-1 text-xs">
-            <div className="text-slate-300">{parsed.targetInfo}</div>
-            <div className="text-slate-300">{parsed.initialStatus}</div>
-            {parsed.tracks && (
-              <div className="text-slate-400">
-                <span className="text-slate-500">Tracks:</span> {parsed.tracks}
-              </div>
-            )}
-          </div>
-
-          {/* Calculation Steps */}
-          {parsed.calculations.length > 0 && (
-            <div className="mb-3">
-              <div className="mb-2 text-xs font-bold text-slate-300 uppercase tracking-wide">Calculation Steps</div>
-              <div className="space-y-2">
-                {parsed.calculations.map((calc, idx) => (
-                  <div key={idx} className="rounded-md bg-slate-800/60 p-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className={clsx(
-                        'font-bold',
-                        calc.track === 'Lure' && 'text-green-400',
-                        calc.track === 'Sound' && 'text-purple-400',
-                        calc.track === 'Throw' && 'text-orange-400',
-                        calc.track === 'Squirt' && 'text-cyan-400',
-                        calc.track === 'Drop' && 'text-blue-400',
-                      )}>
-                        {calc.track}
-                      </span>
-                      <span className={clsx(
-                        'font-mono font-bold',
-                        calc.result.includes('100%') && 'text-green-400',
-                        calc.result.includes('0%') && 'text-red-400',
-                        !calc.result.includes('100%') && !calc.result.includes('0%') && 'text-yellow-300',
-                      )}>
-                        {calc.result}
-                      </span>
-                    </div>
-                    {calc.formula && !calc.formula.includes('lured') && (
-                      <div className="mt-1 font-mono text-[10px] text-slate-400 break-all">
-                        {calc.formula}
-                      </div>
-                    )}
-                    {calc.formula.includes('lured') && (
-                      <div className="mt-1 text-[10px] text-slate-500 italic">
-                        {calc.formula}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Outcome Branches */}
-          {parsed.leafNodes.length > 0 && (
-            <div className="mb-3">
-              <div className="mb-2 text-xs font-bold text-slate-300 uppercase tracking-wide">Possible Outcomes</div>
-              <div className="space-y-1">
-                {parsed.leafNodes.map((leaf, idx) => (
-                  <div
-                    key={idx}
-                    className={clsx(
-                      'flex items-center justify-between rounded px-2 py-1 text-xs',
-                      leaf.isKO ? 'bg-green-900/30' : 'bg-red-900/30',
-                    )}
-                  >
-                    <span>
-                      <span className="font-mono">{leaf.damage}</span>
-                      <span className="text-slate-500"> dmg vs </span>
-                      <span className="font-mono">{leaf.hp}</span>
-                      <span className="text-slate-500"> HP</span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className={leaf.isKO ? 'text-green-400' : 'text-red-400'}>
-                        {leaf.isKO ? 'KO' : 'Survives'}
-                      </span>
-                      <span className="font-mono text-slate-400">({leaf.prob})</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Rules Summary */}
-          {parsed.rules.length > 0 && (
-            <details className="text-xs">
-              <summary className="cursor-pointer text-slate-400 hover:text-slate-300 transition-colors">
-                Rules Reference
-              </summary>
-              <ul className="mt-2 space-y-1 text-slate-500">
-                {parsed.rules.map((rule, idx) => (
-                  <li key={idx} className="pl-2 border-l border-slate-700">{rule}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-      )}
+      {popover}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { GagInfo, GagInstance } from '../types';
 import {
@@ -8,25 +8,33 @@ import {
   explainComboAccuracy,
 } from '../utils/calculatorUtils';
 import { Buttoon } from './Buttoon';
-import type { FillToKillOption, SortMode, SortWeights, GagConserveWeights } from '../utils/fillToKillOptionsWorker';
+import type {
+  FillToKillOption,
+  GagConserveWeights,
+  SortMode,
+  SortWeights,
+} from '../utils/fillToKillOptionsWorker';
 import GagConserveWeightsModal from './GagConserveWeightsModal';
+import KillComboSettingsModal from './KillComboSettingsModal';
 import ComboPreview from './ComboPreview';
 import { findCanonicalGag } from '../utils/gagLookup';
-import { loadFavoritesForKey, toggleFavoriteForKey } from '../storage/favorites';
-import type { FavoriteCombo } from '../storage/favorites';
 import AccuracyPopover from './AccuracyPopover';
 
 const formatAccuracy = (value: number) =>
   Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '0.0%';
 
+const RESULTS_PANEL_MIN_HEIGHT_CLASS = 'min-h-[320px]';
+
 function buildComboItems(gags: GagInfo[]) {
   const counts: Record<string, { gag: GagInfo; count: number }> = {};
+
   for (const g of gags) {
     const canonical = findCanonicalGag(g) ?? g;
     const key = `${canonical.track}:${canonical.level}:${canonical.name}`;
     counts[key] = counts[key] ?? { gag: canonical, count: 0 };
     counts[key].count += 1;
   }
+
   return Object.values(counts)
     .sort(
       (a, b) =>
@@ -35,42 +43,6 @@ function buildComboItems(gags: GagInfo[]) {
         a.gag.name.localeCompare(b.gag.name),
     )
     .map(({ gag, count }) => ({ gag, count }));
-}
-
-function formatComboForCopy(
-  comboItems: { gag: GagInfo; count: number }[],
-  toonsUsed: number,
-  totalDamage: number,
-  accuracy: number,
-  overkill: number,
-  targetLevel: number,
-  scores?: {
-    weightedScore: number;
-    accScore: number;
-    conserveScore: number;
-    tracksScore: number;
-    levelMetric: number;
-    trackCount: number;
-  } | null,
-): string {
-  const gagsStr = comboItems
-    .map((ci) => (ci.count > 1 ? `${ci.count}x ${ci.gag.name}` : ci.gag.name))
-    .join(' + ');
-
-  const lines = [
-    `Combo: ${gagsStr}`,
-    `Target: Level ${targetLevel}`,
-    `Toons: ${toonsUsed} | Damage: ${totalDamage} | Accuracy: ${(accuracy * 100).toFixed(1)}% | Overkill: ${overkill}`,
-  ];
-
-  if (scores) {
-    lines.push(
-      `Score: ${scores.weightedScore.toFixed(3)} (A:${(scores.accScore * 100).toFixed(0)} C:${(scores.conserveScore * 100).toFixed(0)} T:${(scores.tracksScore * 100).toFixed(0)})`,
-      `  levelMetric: ${scores.levelMetric.toFixed(2)} | trackCount: ${scores.trackCount}`,
-    );
-  }
-
-  return lines.join('\n');
 }
 
 interface Props {
@@ -128,27 +100,31 @@ export function KillOptionsTable({
   onToggleLureTracksMultiplierEnabled,
   onSetLureTracksMultiplier,
 }: Props) {
-  const scenarioKey = `lvl:${targetLevel}|hp:${targetHpOverride ?? 'full'}|lured:${isTargetAlreadyLured ? 1 : 0}|toons:${currentGags.length}`;
-  const [favorites, setFavorites] = useState<FavoriteCombo[]>(() => loadFavoritesForKey(scenarioKey));
   const [showGagWeights, setShowGagWeights] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  useEffect(() => {
-    setFavorites(loadFavoritesForKey(scenarioKey));
-  }, [scenarioKey]);
-  const hp = useMemo(() => (targetHpOverride ?? calculateCogHealth(targetLevel)), [targetLevel, targetHpOverride]);
+  const hp = useMemo(
+    () => targetHpOverride ?? calculateCogHealth(targetLevel),
+    [targetLevel, targetHpOverride],
+  );
+
   const currentTotal = useMemo(
     () => calculateTotalDamage(currentGags, { lured: isTargetAlreadyLured }).totalDamage,
     [currentGags, isTargetAlreadyLured],
   );
+
   const currentAccuracy = useMemo(
-    () => calculateComboAccuracy(currentGags, targetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride }),
+    () =>
+      calculateComboAccuracy(currentGags, targetLevel, {
+        initialLured: isTargetAlreadyLured,
+        targetHpOverride,
+      }),
     [currentGags, targetLevel, isTargetAlreadyLured, targetHpOverride],
   );
 
   const rowScores = useMemo(() => {
     if (options.length === 0) return [];
 
-    // Precompute weighted-score components (mirrors worker logic).
     const weights = sortWeights ?? { accuracy: 1, levels: 1, tracks: 1 };
     const wAcc = weights.accuracy ?? 0;
     const wLevels = weights.conserve ?? 0;
@@ -163,15 +139,18 @@ export function KillOptionsTable({
     const levelMetrics = options.map((opt) => {
       let maxEff = 0;
       let sumEff = 0;
+
       for (const g of opt.addedGags) {
         const eff = g.level * getWeightForGag(g);
         maxEff = Math.max(maxEff, eff);
         sumEff += eff;
       }
+
       const avgEff = opt.addedGags.length ? sumEff / opt.addedGags.length : 0;
       const levelMetric = maxEff * 10 + avgEff;
       const tracksExcludingLure = new Set<string>();
       let hasLure = false;
+
       for (const g of [...currentGags, ...opt.addedGags]) {
         if (g.track === 'Lure') {
           hasLure = true;
@@ -179,9 +158,11 @@ export function KillOptionsTable({
         }
         tracksExcludingLure.add(g.track);
       }
+
       const mult = lureTracksMultiplierEnabled ? Number(lureTracksMultiplier ?? 1) : 1;
       const safeMult = Number.isFinite(mult) ? Math.max(0, Math.min(1, mult)) : 1;
       const trackCount = tracksExcludingLure.size + (hasLure ? safeMult : 0);
+
       return { maxEff, avgEff, levelMetric, trackCount };
     });
 
@@ -211,7 +192,14 @@ export function KillOptionsTable({
         avgEff: m.avgEff,
       };
     });
-  }, [options, currentGags, sortWeights, gagConserveWeights, lureTracksMultiplierEnabled, lureTracksMultiplier]);
+  }, [
+    options,
+    currentGags,
+    sortWeights,
+    gagConserveWeights,
+    lureTracksMultiplierEnabled,
+    lureTracksMultiplier,
+  ]);
 
   const rowTooltips = useMemo(() => {
     const combinedGagsByOption = options.map((opt) => [...currentGags, ...opt.addedGags]);
@@ -223,7 +211,10 @@ export function KillOptionsTable({
 
     return options.map((opt, idx) => {
       const allGags = combinedGagsByOption[idx];
-      const accTip = explainComboAccuracy(allGags, targetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride });
+      const accTip = explainComboAccuracy(allGags, targetLevel, {
+        initialLured: isTargetAlreadyLured,
+        targetHpOverride,
+      });
 
       const s = rowScores[idx];
       if (!s) return accTip;
@@ -231,27 +222,34 @@ export function KillOptionsTable({
       const scoreTip =
         sortMode === 'weighted'
           ? [
-            'Weighted score details:',
-            `  Score = wAcc*Acc + wLevels*Conserve + wTracks*Tracks`,
-            `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
-            `  Acc (0..1) = ${s.accScore.toFixed(4)}`,
-            `  Conserve (0..1) = ${s.conserveScore.toFixed(4)}  (higher = uses lower-value gags)`,
-            `    levelMetric = maxEff*10 + avgEff`,
-            `    maxEff=${s.maxEff.toFixed(2)}, avgEff=${s.avgEff.toFixed(2)}, levelMetric=${s.levelMetric.toFixed(2)}`,
-            `  Tracks (0..1) = ${s.tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
-            `    trackCount=${s.trackCount}`,
-            `  WeightedScore = ${s.weightedScore.toFixed(4)}`,
-          ].join('\n')
+              'Weighted score details:',
+              '  Score = wAcc*Acc + wLevels*Conserve + wTracks*Tracks',
+              `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
+              `  Acc (0..1) = ${s.accScore.toFixed(4)}`,
+              `  Conserve (0..1) = ${s.conserveScore.toFixed(4)}  (higher = uses lower-value gags)`,
+              '    levelMetric = maxEff*10 + avgEff',
+              `    maxEff=${s.maxEff.toFixed(2)}, avgEff=${s.avgEff.toFixed(2)}, levelMetric=${s.levelMetric.toFixed(2)}`,
+              `  Tracks (0..1) = ${s.tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
+              `    trackCount=${s.trackCount}`,
+              `  WeightedScore = ${s.weightedScore.toFixed(4)}`,
+            ].join('\n')
           : '';
 
       return scoreTip ? `${accTip}\n\n${scoreTip}` : accTip;
     });
-  }, [options, currentGags, targetLevel, sortMode, sortWeights, rowScores, isTargetAlreadyLured, targetHpOverride]);
+  }, [
+    options,
+    currentGags,
+    targetLevel,
+    sortMode,
+    sortWeights,
+    rowScores,
+    isTargetAlreadyLured,
+    targetHpOverride,
+  ]);
 
-  const favoriteIds = new Set(favorites.map((f) => f.id));
-
-  // Scroll container ref: snap to top when new options are provided
   const listRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     try {
       if (listRef.current) listRef.current.scrollTop = 0;
@@ -261,425 +259,226 @@ export function KillOptionsTable({
   }, [options]);
 
   return (
-    <div className="mt-3 w-full rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 md:p-4">
-      <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <div className="font-minnie text-lg md:text-xl text-white">
-          Kill combos for <span className="text-yellow-300">Level {targetLevel}</span>{' '}
-          <span className="opacity-70">(HP: {hp})</span>
-        </div>
-        <div className="text-xs md:text-sm text-slate-300 space-y-1">
-          <div>
-            Current damage: <span className="font-bold text-red-300">- {currentTotal}</span>
+    <div className="mt-3 flex w-full flex-col rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 min-[900px]:w-fit min-[900px]:max-w-full md:p-4">
+      <div className="mb-3 space-y-3">
+        <div className="flex flex-col gap-2">
+          <div className="font-minnie text-lg text-white md:text-xl">
+            Kill combos for <span className="text-yellow-300">Level {targetLevel}</span>{' '}
+            <span className="opacity-70">(HP: {hp})</span>
           </div>
-          <div>
-            Accuracy:{' '}
-            <span className="font-bold text-yellow-300">
-              {currentGags.length ? formatAccuracy(currentAccuracy) : 'N/A'}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[11px] uppercase tracking-wide text-slate-400">Sort:</span>
-
-            <div className="flex overflow-hidden rounded-md border border-blue-800">
-              <button
-                type="button"
-                onClick={() => onSortModeChange('accuracy')}
-                className={[
-                  'px-2 py-1 text-[11px] font-bold',
-                  sortMode === 'accuracy'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
-                ].join(' ')}
-              >
-                Accuracy
-              </button>
-              <button
-                type="button"
-                onClick={() => onSortModeChange('conserve')}
-                className={[
-                  'px-2 py-1 text-[11px] font-bold',
-                  sortMode === 'conserve'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
-                ].join(' ')}
-              >
-                Conserve gags
-              </button>
-              <button
-                type="button"
-                onClick={() => onSortModeChange('weighted')}
-                className={[
-                  'px-2 py-1 text-[11px] font-bold',
-                  sortMode === 'weighted'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
-                ].join(' ')}
-              >
-                Weighted
-              </button>
+          <div className="space-y-1 text-xs text-slate-300 md:text-sm">
+            <div>
+              Current damage: <span className="font-bold text-red-300">- {currentTotal}</span>
             </div>
+            <div>
+              Accuracy to kill:{' '}
+              <span className="font-bold text-yellow-300">
+                {currentGags.length ? formatAccuracy(currentAccuracy) : 'N/A'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] uppercase tracking-wide text-slate-400">Sort:</span>
 
-            {sortMode === 'weighted' && (
-              <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                <span className="text-slate-300">Weights</span>
-
-                <label className="flex items-center gap-1">
-                  <span className="text-slate-300">Acc</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    value={sortWeights.accuracy}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      onSortWeightsChange({
-                        ...sortWeights,
-                        accuracy: Number.isFinite(v) ? v : sortWeights.accuracy,
-                      });
-                    }}
-                    className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-                  />
-                </label>
-
-                <label className="flex items-center gap-1">
-                  <span className="text-slate-300">Levels</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    value={sortWeights.conserve}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      onSortWeightsChange({
-                        ...sortWeights,
-                        conserve: Number.isFinite(v) ? v : sortWeights.conserve,
-                      });
-                    }}
-                    className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-                  />
-                </label>
-
-                <label className="flex items-center gap-1">
-                  <span className="text-slate-300">Tracks</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    value={sortWeights.tracks}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      onSortWeightsChange({
-                        ...sortWeights,
-                        tracks: Number.isFinite(v) ? v : sortWeights.tracks,
-                      });
-                    }}
-                    className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-                  />
-                </label>
-
+              <div className="flex overflow-hidden rounded-md border border-blue-800">
                 <button
                   type="button"
-                  onClick={() => setShowGagWeights(true)}
-                  className="rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] font-bold text-blue-100 hover:bg-blue-900"
+                  onClick={() => onSortModeChange('accuracy')}
+                  className={[
+                    'px-2 py-1 text-[11px] font-bold',
+                    sortMode === 'accuracy'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
+                  ].join(' ')}
                 >
-                  Gag retain weights…
+                  Accuracy
                 </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    title="Enable fractional Lure contribution when counting unique tracks (0..1)"
-                    onClick={() => onToggleLureTracksMultiplierEnabled?.(!lureTracksMultiplierEnabled)}
-                    className={[
-                      'rounded-md border px-2 py-1 text-[11px] font-bold',
-                      lureTracksMultiplierEnabled
-                        ? 'border-green-400 bg-green-500/10 text-green-200'
-                        : 'border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-800/70',
-                    ].join(' ')}
-                  >
-                    🎯 Lure track value multiplier
-                  </button>
-                  {lureTracksMultiplierEnabled ? (
-                    <input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={Number(lureTracksMultiplier ?? 0.5)}
-                      onChange={(e) => onSetLureTracksMultiplier?.(Number(e.target.value))}
-                      className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-                      title="When enabled, Lure contributes this fraction (0..1) to unique track count for weighted sorting"
-                    />
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onSortModeChange('conserve')}
+                  className={[
+                    'px-2 py-1 text-[11px] font-bold',
+                    sortMode === 'conserve'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
+                  ].join(' ')}
+                >
+                  Conserve gags
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSortModeChange('weighted')}
+                  className={[
+                    'px-2 py-1 text-[11px] font-bold',
+                    sortMode === 'weighted'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-blue-950 text-blue-100 hover:bg-blue-900',
+                  ].join(' ')}
+                >
+                  Weighted
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Buttoon
+            onClick={() => setShowSettingsModal(true)}
+            className="border border-blue-800 bg-blue-950 px-3 py-2 text-sm font-bold text-blue-100 hover:bg-blue-900"
+          >
+            Combo settings
+          </Buttoon>
+          <div className="text-[11px] text-slate-400">
+            Weights, limits, and display options are in the settings modal.
+          </div>
+        </div>
+      </div>
+
+      <div className={`relative ${RESULTS_PANEL_MIN_HEIGHT_CLASS}`}>
+        {options.length === 0 ? (
+          <>
+            {isLoading && (
+              <div className="text-sm text-slate-300/80">Finding low-level options...</div>
+            )}
+            {!isLoading && (
+              <div
+                className={`flex ${RESULTS_PANEL_MIN_HEIGHT_CLASS} items-center text-sm text-slate-300/80`}
+              >
+                No valid one-turn kill found with the current constraints / toon count.
               </div>
             )}
-
-            <label className="flex items-center gap-2 text-[11px]">
-              <input
-                type="checkbox"
-                checked={hideOverkillAdditions}
-                onChange={(e) => onHideOverkillChange(e.target.checked)}
-              />
-              Hide overkill additions
-            </label>
-
-            {sortMode === 'weighted' && (
-              <label className="flex items-center gap-2 text-[11px]">
-                <input
-                  type="checkbox"
-                  checked={showScores}
-                  onChange={(e) => onShowScoresChange(e.target.checked)}
-                />
-                Show scores
-              </label>
-            )}
-
-            <label className="flex items-center gap-2 text-[11px]">
-              <span className="text-slate-300">Generation cap</span>
-              <input
-                type="number"
-                min={50}
-                max={50000}
-                step={50}
-                value={maxGenerated}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  onMaxGeneratedChange(Number.isFinite(v) ? v : 2000);
-                }}
-                className="w-[86px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-              />
-            </label>
-
-            <label className="flex items-center gap-2 text-[11px]">
-              <span className="text-slate-300">Max shown</span>
-              <input
-                type="number"
-                min={5}
-                max={100}
-                step={5}
-                value={maxDisplayed}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  onMaxDisplayedChange(Number.isFinite(v) ? v : 20);
-                }}
-                className="w-[64px] rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] text-slate-100"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Favorites area (always shown) */}
-      <div className="mb-3">
-        <div className="mb-2 text-sm font-bold text-yellow-300">Starred</div>
-        {favorites.length === 0 ? (
-          <div className="text-sm text-slate-300/80">No favorites yet — click ☆ on any combo.</div>
+          </>
         ) : (
-          <div className="space-y-2">
-            {favorites.slice(0, 6).map((f) => {
-              const items = buildComboItems(f.addedGags);
-              return (
-                <div
-                  key={f.id}
-                  className="w-full rounded-md border border-slate-800 bg-slate-900/50 p-2 hover:bg-slate-800"
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        className="flex-1 text-left text-sm font-bold text-slate-100"
-                        onClick={() => onApply(f.addedGags)}
-                      >
-                        Lvl {f.maxCogLevel} · {f.total} dmg · {f.toons} toons
-                      </button>
-                      <div className="text-yellow-300">★</div>
-                      <button
-                        type="button"
-                        className="text-xs text-slate-300 hover:text-red-400"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const next = toggleFavoriteForKey(scenarioKey, f);
-                          setFavorites(next);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <div className="text-xs text-slate-200">
-                      <ComboPreview items={items} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {isLoading ? (
-        <div className="text-slate-300/80 text-sm">Finding low-level options…</div>
-      ) : options.length === 0 ? (
-        <div className="text-slate-300/80 text-sm">
-          No valid one-turn kill found with the current constraints / toon count.
-        </div>
-      ) : (
-        <div ref={listRef} className="max-h-[600px] min-h-[300px] overflow-y-auto overflow-x-hidden pr-3">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wider text-slate-300/80">
-              <tr>
-                <th className="py-2 pr-3">Add</th>
-                <th className="py-2 pr-3">Toons</th>
-                <th className="py-2 pr-3">Total</th>
-                <th className="py-2 pr-3">Acc</th>
-                <th className="py-2 pr-3">Over</th>
-                {sortMode === 'weighted' && showScores && <th className="py-2 pr-3">Score</th>}
-                <th className="py-2 pr-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/60">
-              {options.map((opt, idx) => {
-                const toonsUsed = currentGags.length + opt.addedGags.length;
-                const comboItems = buildComboItems(opt.addedGags);
-                const sigArr: string[] = [];
-                for (const ci of comboItems) {
-                  for (let i = 0; i < ci.count; i++) sigArr.push(`${ci.gag.track}:${ci.gag.level}:${ci.gag.name}`);
-                }
-                sigArr.sort();
-                const sig = sigArr.join('|');
-                const favId = `${targetLevel}|${toonsUsed}|${opt.totalDamage}|${sig}`;
-                return (
-                  <tr key={idx} className="align-top">
-                    <td className="py-2 pr-3">
-                      <div className="text-slate-100">
-                        {opt.addedGags.length === 0 ? (
-                          <span className="text-emerald-300 font-bold">No extra gags needed</span>
-                        ) : (
-                          <ComboPreview items={comboItems} />
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 tabular-nums text-slate-200">{toonsUsed}</td>
-                    <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.totalDamage}</td>
-                    <td className="py-2 pr-3 text-slate-200">
-                      <AccuracyPopover
-                        accuracy={opt.accuracy}
-                        explanation={rowTooltips[idx]}
-                      />
-                    </td>
-                    <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.overkill}</td>
-                    {sortMode === 'weighted' && showScores && rowScores[idx] && (
-                      <td className="py-2 pr-3 text-slate-200">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-yellow-300 tabular-nums">{rowScores[idx].weightedScore.toFixed(3)}</span>
-                          <div className="flex gap-1.5 text-[10px] text-slate-400">
-                            <span title="Accuracy component">A:{(rowScores[idx].accScore * 100).toFixed(0)}</span>
-                            <span title="Conserve component (higher = uses cheaper gags)">C:{(rowScores[idx].conserveScore * 100).toFixed(0)}</span>
-                            <span title="Tracks component (higher = fewer tracks)">T:{(rowScores[idx].tracksScore * 100).toFixed(0)}</span>
-                          </div>
-                        </div>
-                      </td>
-                    )}
-                    <td className="py-2 pr-0 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const text = formatComboForCopy(
-                              comboItems,
-                              toonsUsed,
-                              opt.totalDamage,
-                              opt.accuracy,
-                              opt.overkill,
-                              targetLevel,
-                              rowScores[idx] ?? null,
-                            );
-                            navigator.clipboard.writeText(text).then(() => {
-                              // Could add a toast notification here
-                            });
-                          }}
-                          className="shrink-0 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-sm font-bold text-slate-300 hover:bg-blue-900 hover:text-white"
-                          title="Copy combo info to clipboard"
-                        >
-                          📋
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = toggleFavoriteForKey(scenarioKey, {
-                              id: favId,
-                              addedGags: opt.addedGags.map((g) => findCanonicalGag(g) ?? g),
-                              toons: toonsUsed,
-                              total: opt.totalDamage,
-                              over: opt.overkill,
-                              maxCogLevel: targetLevel,
-                              createdAt: Date.now(),
-                            });
-                            setFavorites(next);
-                          }}
-                          className={`shrink-0 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-sm font-bold ${favoriteIds.has(favId) ? 'text-yellow-300' : 'text-slate-300'} hover:bg-blue-900`}
-                          title={favoriteIds.has(favId) ? 'Unfavorite' : 'Favorite'}
-                        >
-                          {favoriteIds.has(favId) ? '★' : '☆'}
-                        </button>
-
-                        <Buttoon
-                          className="px-3 py-1 text-sm"
-                          onClick={() => {
-                            const resolved = opt.addedGags.map((g) => findCanonicalGag(g) ?? g);
-                            onApply(resolved);
-                          }}
-                        >
-                          Use
-                        </Buttoon>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="text-xs text-slate-400/90">
-          {sortMode === 'accuracy'
-            ? 'Ranked by kill chance, then by gag level used.'
-            : sortMode === 'conserve'
-              ? 'Ranked by gag level used, then by kill chance.'
-              : 'Ranked by weighted score (accuracy, conserve levels, fewer tracks).'}
-        </div>
-        {options.length > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              const allText = options
-                .map((opt, idx) => {
+          <div
+            ref={listRef}
+            className={`max-h-[600px] w-full ${RESULTS_PANEL_MIN_HEIGHT_CLASS} overflow-y-auto overflow-x-visible pr-3 min-[900px]:w-fit`}
+          >
+            <table className="w-full table-auto text-left text-sm min-[900px]:w-fit">
+              <thead className="text-xs uppercase tracking-wider text-slate-300/80">
+                <tr>
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3">Add</th>
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3 whitespace-nowrap">
+                    Toons
+                  </th>
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3 whitespace-nowrap">
+                    Total
+                  </th>
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3 whitespace-nowrap">
+                    Acc
+                  </th>
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3 whitespace-nowrap">
+                    Over
+                  </th>
+                  {sortMode === 'weighted' && showScores && (
+                    <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3 whitespace-nowrap">
+                      Score
+                    </th>
+                  )}
+                  <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/60">
+                {options.map((opt, idx) => {
                   const toonsUsed = currentGags.length + opt.addedGags.length;
                   const comboItems = buildComboItems(opt.addedGags);
-                  return formatComboForCopy(
-                    comboItems,
-                    toonsUsed,
-                    opt.totalDamage,
-                    opt.accuracy,
-                    opt.overkill,
-                    targetLevel,
-                    rowScores[idx] ?? null,
+
+                  return (
+                    <tr key={idx} className="align-top">
+                      <td className="py-2 pr-3">
+                        <div className="w-fit max-w-[18rem] text-slate-100 min-[900px]:max-w-[20rem]">
+                          {opt.addedGags.length === 0 ? (
+                            <span className="font-bold text-emerald-300">
+                              No extra gags needed
+                            </span>
+                          ) : (
+                            <ComboPreview items={comboItems} />
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-slate-200">{toonsUsed}</td>
+                      <td className="py-2 pr-3 tabular-nums text-slate-200">
+                        {opt.totalDamage}
+                      </td>
+                      <td className="py-2 pr-3 text-slate-200">
+                        <AccuracyPopover
+                          accuracy={opt.accuracy}
+                          explanation={rowTooltips[idx]}
+                        />
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.overkill}</td>
+                      {sortMode === 'weighted' && showScores && rowScores[idx] && (
+                        <td className="py-2 pr-3 text-slate-200">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold tabular-nums text-yellow-300">
+                              {rowScores[idx].weightedScore.toFixed(3)}
+                            </span>
+                            <div className="flex gap-1.5 text-[10px] text-slate-400">
+                              <span title="Accuracy component">
+                                A:{(rowScores[idx].accScore * 100).toFixed(0)}
+                              </span>
+                              <span title="Conserve component (higher = uses cheaper gags)">
+                                C:{(rowScores[idx].conserveScore * 100).toFixed(0)}
+                              </span>
+                              <span title="Tracks component (higher = fewer tracks)">
+                                T:{(rowScores[idx].tracksScore * 100).toFixed(0)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      )}
+                      <td className="py-2 pr-0 text-right">
+                        <div className="flex items-center justify-end">
+                          <Buttoon
+                            className="px-3 py-1 text-sm"
+                            onClick={() => {
+                              const resolved = opt.addedGags.map(
+                                (g) => findCanonicalGag(g) ?? g,
+                              );
+                              onApply(resolved);
+                            }}
+                          >
+                            Use
+                          </Buttoon>
+                        </div>
+                      </td>
+                    </tr>
                   );
-                })
-                .join('\n\n---\n\n');
-              navigator.clipboard.writeText(allText);
-            }}
-            className="shrink-0 rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-blue-900 hover:text-white"
-            title="Copy all visible combos to clipboard"
-          >
-            📋 Copy all ({options.length})
-          </button>
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
+      <div className="mt-2 text-xs text-slate-400/90">
+        {sortMode === 'accuracy'
+          ? 'Ranked by kill chance, then by gag level used.'
+          : sortMode === 'conserve'
+            ? 'Ranked by gag level used, then by kill chance.'
+            : 'Ranked by weighted score (accuracy, conserve levels, fewer tracks).'}
+      </div>
+
+      {showSettingsModal && (
+        <KillComboSettingsModal
+          sortMode={sortMode}
+          sortWeights={sortWeights}
+          onSortWeightsChange={onSortWeightsChange}
+          onOpenGagWeights={() => setShowGagWeights(true)}
+          hideOverkillAdditions={hideOverkillAdditions}
+          onHideOverkillChange={onHideOverkillChange}
+          showScores={showScores}
+          onShowScoresChange={onShowScoresChange}
+          maxGenerated={maxGenerated}
+          onMaxGeneratedChange={onMaxGeneratedChange}
+          maxDisplayed={maxDisplayed}
+          onMaxDisplayedChange={onMaxDisplayedChange}
+          lureTracksMultiplierEnabled={lureTracksMultiplierEnabled}
+          lureTracksMultiplier={lureTracksMultiplier}
+          onToggleLureTracksMultiplierEnabled={onToggleLureTracksMultiplierEnabled}
+          onSetLureTracksMultiplier={onSetLureTracksMultiplier}
+          onClose={() => setShowSettingsModal(false)}
+        />
+      )}
 
       {showGagWeights && (
         <GagConserveWeightsModal

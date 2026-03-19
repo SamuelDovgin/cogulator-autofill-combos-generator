@@ -11,6 +11,7 @@ import { KillOptionsTable } from './components/KillOptionsTable';
 import SettingsJsonModal from './components/SettingsJsonModal';
 import InfoTip from './components/InfoTip';
 import AccuracyPopover from './components/AccuracyPopover';
+import { Footer } from './components/Footer';
 
 import { GagTracks } from './data/gagTracksInfo';
 import { calculateComboAccuracy, calculateCogHealth, calculateMaxCogLevel, calculateTotalDamage, explainComboAccuracy } from './utils/calculatorUtils';
@@ -509,6 +510,9 @@ export default function App() {
     [selectedGags, maxToons, playClickSfx],
   );
 
+  const panelClassName =
+    'w-full rounded-2xl border border-slate-800/80 bg-slate-900/55 p-3 shadow-[0_18px_40px_rgba(2,8,23,0.35)] backdrop-blur-sm';
+
   // Auto-apply top option after click
 
   const toggleTrack = (track: GagTrackName) => {
@@ -709,17 +713,18 @@ export default function App() {
         playHoverSfx,
       }}
     >
-      <div className="min-h-screen w-full bg-slate-950 text-white">
-        <Header
-          soundEnabled={soundEnabled}
-          setSoundEnabled={setSoundEnabled}
-          onOpenSettings={() => setSettingsModalOpen(true)}
-        />
+      <div className="flex min-h-screen w-full justify-center overflow-visible bg-[#020618] text-white">
+        <div className="app-shell-scale flex min-h-screen w-full flex-col">
+          <Header
+            soundEnabled={soundEnabled}
+            setSoundEnabled={setSoundEnabled}
+            onOpenSettings={() => setSettingsModalOpen(true)}
+          />
 
-        <div className="mx-4 flex w-full max-w-7xl flex-col gap-4 p-4 pb-[50vh]">
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex w-full flex-col items-center justify-center gap-3">
-              <div className="flex w-full flex-col items-center gap-2">
+          <main className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-4 px-4 pt-6 pb-12 sm:px-6 lg:pb-16">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex w-full flex-col items-center justify-center gap-3">
+                <div className="flex w-full flex-col items-center gap-2">
                 <CogDamageTable
                   selectedGags={displaySelectedGags}
                   hoveredGag={undefined}
@@ -730,9 +735,9 @@ export default function App() {
                 />
 
                 {/* Controls under graph */}
-                <div className="w-full min-w-[300px] rounded-md border border-slate-800 bg-slate-900/50 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                <div className={`${panelClassName} min-w-[300px]`}>
+                  <div className="grid grid-cols-1 items-start gap-4 min-[900px]:grid-cols-[minmax(0,58%)_minmax(0,42%)] min-[900px]:gap-x-5">
+                    <div className="flex items-center gap-2 min-[900px]:col-start-1">
                       <div className="text-sm font-bold text-slate-200">Toons:</div>
                       <div className="flex overflow-hidden rounded-md border border-blue-800">
                         {[1, 2, 3, 4].map((n) => (
@@ -753,8 +758,8 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-2">
+                    <div className="flex w-full flex-col gap-3 min-[900px]:col-start-2 min-[900px]:row-start-1">
+                      <div className="flex flex-wrap items-center gap-3 [&>button:first-child]:hidden">
                         <button
                           type="button"
                           title="Toggle: treat the target as already lured at the start of the round (no need to use Lure/Trap this turn)."
@@ -799,32 +804,31 @@ export default function App() {
                             }}
                             title="If Remaining HP is blank, this damage is subtracted from the selected cog level's full HP to compute remaining HP for KO% / kill combos."
                           />
-
-                          <button
-                            type="button"
-                            className="ml-1 rounded-md border border-slate-700 bg-slate-800/40 px-2 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-800/70"
-                            title="Clear Remaining HP, Current DMG, and Already Lured status"
-                            onClick={() => {
-                              setTargetHpText('');
-                              setCurrentDmgText('');
-                              setIsTargetAlreadyLured(false);
-                            }}
-                          >
-                            Clear
-                          </button>
                         </label>
+                        <button
+                          type="button"
+                          className="rounded-md border border-slate-700 bg-slate-800/40 px-2 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-800/70"
+                          title="Clear Remaining HP, Current DMG, and Already Lured status"
+                          onClick={() => {
+                            setTargetHpText('');
+                            setCurrentDmgText('');
+                            setIsTargetAlreadyLured(false);
+                          }}
+                        >
+                          Clear
+                        </button>
                       </div>
                     </div>
 
 
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-2 min-[900px]:col-start-1">
                       <div className="text-sm font-bold text-slate-200">Missing track per Toon (optional):</div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="grid grid-cols-1 justify-items-start gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-x-3">
                         {Array.from({ length: maxToons }).map((_, idx) => (
-                          <label key={idx} className="flex items-center gap-1 text-xs text-slate-200">
-                            <span className="text-slate-300">Toon {idx + 1}</span>
+                          <label key={idx} className="flex max-w-full items-center gap-1.5 text-xs text-slate-200">
+                            <span className="w-10 shrink-0 text-[11px] text-slate-300">Toon {idx + 1}</span>
                             <select
-                              className="rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-xs text-slate-100"
+                              className="w-[8.75rem] max-w-full rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-xs text-slate-100"
                               value={toonRestrictions[idx] ?? 'none'}
                               onChange={(e) => {
                                 const next = [...toonRestrictions] as ToonRestriction[];
@@ -849,7 +853,7 @@ export default function App() {
                     </div>
 
 
-                    <div className="flex flex-col gap-2 text-sm">
+                    <div className="flex w-full flex-col gap-2 text-sm min-[900px]:col-start-2 min-[900px]:row-start-2">
                       <div className="flex flex-wrap items-center gap-3">
                         <label className="flex items-center gap-2">
                           <input
@@ -935,7 +939,7 @@ export default function App() {
                   </div>
 
 
-                  <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-100">
+                  <div className="mt-3 flex max-w-[55rem] flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-100">
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -957,7 +961,7 @@ export default function App() {
                     </label>
                   </div>
 
-                  <div className="mt-2 text-xs text-slate-300/80">
+                  <div className="mt-2 max-w-[55rem] text-xs text-slate-300/80">
                     Tip: click any Cog level to auto-fill your remaining toon slots and show alternate kill lines.
                   </div>
                 </div>
@@ -965,9 +969,33 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
-            <div className="space-y-3">
-              <div className="w-full rounded-md border border-slate-800 bg-slate-900/50 p-3">
+          <div className="grid w-full grid-cols-1 items-start gap-4 min-[900px]:grid-cols-[max-content_max-content] min-[900px]:justify-start">
+            <div className="relative z-10 w-full space-y-3 min-[900px]:w-max">
+              <div className={panelClassName}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/8 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+                      Target State
+                    </div>
+                    <div className="text-sm text-slate-200">
+                      Set whether the target is already lured before choosing this turn&apos;s gags.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    title="Treat the target as already lured at the start of the round. This changes combo damage, accuracy, and whether Lure or Trap are needed."
+                    onClick={() => setIsTargetAlreadyLured((v) => !v)}
+                    className={[
+                      'shrink-0 rounded-lg border px-3 py-2 text-sm font-bold transition-colors',
+                      isTargetAlreadyLured
+                        ? 'border-amber-300 bg-amber-500/18 text-amber-50 hover:bg-amber-500/26'
+                        : 'border-rose-300/55 bg-rose-500/14 text-rose-50 hover:bg-rose-500/22',
+                    ].join(' ')}
+                  >
+                    {isTargetAlreadyLured ? '🧲 Already lured' : '🧲 Not lured'}
+                  </button>
+                </div>
+
                 <CalculationDisplay
                   selectedGags={displaySelectedGags}
                   isTargetAlreadyLured={isTargetAlreadyLured}
@@ -995,7 +1023,7 @@ export default function App() {
                     <span className="font-cog" title={maxCogExplanation}>- {maxCogLevel}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="font-bold text-white">Accuracy:</span>{' '}
+                    <span className="font-bold text-white">Accuracy to kill:</span>{' '}
                     {calcSelectedGags.length ? (
                       <AccuracyPopover
                         accuracy={selectionAccuracy}
@@ -1010,9 +1038,9 @@ export default function App() {
               </div>
 
               {/* Gag tracks list with inline allow toggles */}
-              <div className="w-full rounded-md border border-slate-800 bg-slate-900/50 p-3">
+              <div className={panelClassName}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-minnie text-2xl text-red-500">Gag Tracks</div>
+                  <div className="text-lg font-semibold text-white">Gag Tracks</div>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -1030,32 +1058,34 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-                <div className="flex flex-col gap-4">
-                  {tracksToRender.map((track, idx) => (
-                    <div
-                      key={track.name}
-                      className="relative"
-                      style={{ zIndex: tracksToRender.length - idx }}
-                    >
-                      <GagTrack
-                        track={track}
-                        onGagSelect={handleGagSelect}
-                        onGagHover={handlePaletteGagHover}
-                        disabled={selectedGags.length >= maxToons}
-                        excludeLevels={excludeLevels}
-                        greyOutExcludedLevels={greyOutExcludedLevels}
-                        highlightStrengths={paletteHighlightStrengths}
-                        isTrackEnabled={enabledTracks[track.name as GagTrackName] !== false}
-                        onToggleTrack={() => toggleTrack(track.name as GagTrackName)}
-                        onOnlyTrack={() => onlyTrack(track.name as GagTrackName)}
-                      />
-                    </div>
-                  ))}
+                <div className="overflow-visible pt-[13px]">
+                  <div className="isolate flex w-max min-w-full flex-col gap-4">
+                    {tracksToRender.map((track, idx) => (
+                      <div
+                        key={track.name}
+                        className="relative transition-[z-index] hover:z-40 focus-within:z-40"
+                        style={{ zIndex: idx + 1 }}
+                      >
+                        <GagTrack
+                          track={track}
+                          onGagSelect={handleGagSelect}
+                          onGagHover={handlePaletteGagHover}
+                          disabled={selectedGags.length >= maxToons}
+                          excludeLevels={excludeLevels}
+                          greyOutExcludedLevels={greyOutExcludedLevels}
+                          highlightStrengths={paletteHighlightStrengths}
+                          isTrackEnabled={enabledTracks[track.name as GagTrackName] !== false}
+                          onToggleTrack={() => toggleTrack(track.name as GagTrackName)}
+                          onOnlyTrack={() => onlyTrack(track.name as GagTrackName)}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="relative z-20 w-full overflow-visible space-y-3 min-[900px]:w-max">
               {effectiveTargetLevel !== null ? (
                 <KillOptionsTable
                   targetLevel={effectiveTargetLevel}
@@ -1085,8 +1115,8 @@ export default function App() {
                   onSetLureTracksMultiplier={setLureTracksMultiplier}
                 />
               ) : (
-                <div className="rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-4 text-slate-200">
-                  <div className="font-minnie text-xl text-white">Kill combos</div>
+                <div className={`${panelClassName} text-slate-200`}>
+                  <div className="text-lg font-semibold text-white">Kill combos</div>
                   <div className="mt-2 text-sm text-slate-300/80">
                     Hover (preview) or click (commit) a Cog level to see one-turn kill options.
                   </div>
@@ -1094,7 +1124,9 @@ export default function App() {
               )}
             </div>
           </div>
+        </main>
 
+          <Footer />
         </div>
       </div>
 

@@ -53,6 +53,28 @@
   body,
   #root {
     height: 100%;
+    background-color: #020618;
+  }
+
+  .app-shell-scale {
+    width: 100%;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (min-width: 900px) {
+    .app-shell-scale {
+      width: calc(100% / 0.67);
+      min-height: calc(100vh / 0.67);
+      zoom: 0.67;
+    }
   }
 
   @font-face {
@@ -79,6 +101,27 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  body {
+    margin: 0;
+    background: #020618;
+    color: white;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @theme {
@@ -88,6 +131,6 @@
 }
 
 .root-node {
-  background-image: url("../assets/cogulator_bg.png");
-  background-size: 1000px;
+  background-image: none;
+  background-color: transparent;
 }

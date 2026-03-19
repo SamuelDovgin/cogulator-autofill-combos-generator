@@ -128,9 +128,7 @@ export default function Gag({
           role="button"
           tabIndex={0}
         >
-          {/* Green Circle behind Organic Leaf */}
           <div className="pointer-events-none absolute h-[25px] w-[25px] rounded-full bg-green-800 drop-shadow-[1px_1px_1px_black]" />
-          {/* Organic Leaf icon */}
           <img
             alt={gag.name}
             className="pointer-events-none absolute right-[-4px] top-[-4px] z-50 aspect-square overflow-hidden drop-shadow-[1px_1px_1px_black]"
