@@ -2,6 +2,7 @@ import VolumeOffIcon from '../../assets/icons/volume-off.svg?react';
 import VolumeOnIcon from '../../assets/icons/volume-on.svg?react';
 import { APP_NAME, APP_SHORT_NAME, APP_TAGLINE } from '../constants/site';
 import { BrandMark } from './BrandMark';
+import { PlannerToggle } from './PlannerToggle';
 
 export function Header({
   soundEnabled,
@@ -28,7 +29,7 @@ export function Header({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 lg:mt-1">
+        <div className="flex flex-wrap items-center gap-2 lg:mt-1 lg:shrink-0">
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -51,6 +52,9 @@ export function Header({
           >
             Settings JSON
           </button>
+          <div className="ml-auto">
+            <PlannerToggle />
+          </div>
         </div>
       </div>
     </header>

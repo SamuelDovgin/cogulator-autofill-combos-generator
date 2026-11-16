@@ -146,7 +146,6 @@ const DEFAULT_SORT_WEIGHTS: SortWeights = { accuracy: 1, conserve: 1, tracks: 1 
 function normalizeSortWeights(req: FillToKillRequest): SortWeights {
   const toggles = (req as any).toggles ?? {};
 
-  const initialLured = !!(req.isTargetAlreadyLured ?? toggles.isTargetAlreadyLured);
   const raw = (req as any).sortWeights ?? toggles.sortWeights ?? {};
   const merged = { ...DEFAULT_SORT_WEIGHTS, ...raw } as any;
   const clean = (v: any, fallback: number) => {
@@ -164,7 +163,6 @@ function normalizeSortWeights(req: FillToKillRequest): SortWeights {
 function normalizeSortMode(req: FillToKillRequest, preferAccuracy: boolean): SortMode {
   const toggles = (req as any).toggles ?? {};
 
-  const initialLured = !!(req.isTargetAlreadyLured ?? toggles.isTargetAlreadyLured);
   const raw = (req as any).sortMode ?? toggles.sortMode;
   if (raw === 'accuracy' || raw === 'conserve' || raw === 'weighted') return raw;
   return preferAccuracy ? 'accuracy' : 'conserve';
@@ -173,26 +171,6 @@ function normalizeSortMode(req: FillToKillRequest, preferAccuracy: boolean): Sor
 function clamp01(v: number) {
   if (!Number.isFinite(v)) return 0;
   return Math.max(0, Math.min(1, v));
-}
-
-function defaultRetainWeightForTrack(track: GagTrack): number {
-  // Preset: conserve Throw/Squirt most, Sound next, Lure moderate, Drop/Trap low.
-  switch (track) {
-    case 'Throw':
-    case 'Squirt':
-      return 1.0;
-    case 'Sound':
-      return 0.7;
-    case 'Lure':
-      return 0.5;
-    case 'Toonup':
-      return 0.5;
-    case 'Drop':
-    case 'Trap':
-      return 0.2;
-    default:
-      return 0.5;
-  }
 }
 
 function computeWeightedMetrics(
@@ -309,7 +287,6 @@ function sortOptionsWeighted(
 function normalizeGenerationCap(req: FillToKillRequest): number {
   const toggles = (req as any).toggles ?? {};
 
-  const initialLured = !!(req.isTargetAlreadyLured ?? toggles.isTargetAlreadyLured);
   const maxResultsCap = req.maxResults ?? toggles.maxResults ?? 12;
   const raw = (req as any).maxGenerated ?? toggles.maxGenerated ?? maxResultsCap * 30;
   const n = Number(raw);
@@ -389,17 +366,6 @@ function canAssignGagsToToons(
   // Tiny problem size (<=4): exact backtracking with bitmask.
   const tracks = allGags.map((g) => g.track as GagTrack);
 
-  function dfs(i: number, usedMask: number): boolean {
-    if (i >= tracks.length) return true;
-    const tr = tracks[i];
-    for (let toon = 0; toon < restrictions.length; toon++) {
-      if (usedMask & (1 << toon)) continue;
-      if (!toonAllows(tr, restrictions[toon])) continue;
-      if (dfs(i + 1, usedMask | (1 << toon))) return true;
-    }
-    return false;
-  }
-
   // Heuristic: assign most constrained first to prune
   const order = tracks
     .map((tr, idx) => ({ tr, idx }))
@@ -473,28 +439,6 @@ function filterEquivalentOverkill(options: FillToKillOption[]): FillToKillOption
   }
   return [...map.values()];
 }
-
-function filterNoAccuracyGainWithMoreGags(options: FillToKillOption[]): FillToKillOption[] {
-  // Additional user requirement:
-  // If adding more gags does NOT improve the displayed one-turn KO chance,
-  // do not show those longer combos.
-  //
-  // Implementation: for each displayed accuracy bucket (0.1% bins), keep only
-  // the options that use the MINIMUM number of added gags.
-  const minLenByAcc = new Map<number, number>();
-  for (const opt of options) {
-    const accKey = Math.round(opt.accuracy * 1000); // 0.1% bins
-    const len = opt.addedGags.length;
-    const prev = minLenByAcc.get(accKey);
-    if (prev === undefined || len < prev) minLenByAcc.set(accKey, len);
-  }
-
-  return options.filter((opt) => {
-    const accKey = Math.round(opt.accuracy * 1000);
-    return opt.addedGags.length === (minLenByAcc.get(accKey) ?? opt.addedGags.length);
-  });
-}
-
 
 function filterSupersetsWithNoDisplayedAccuracyGain(options: FillToKillOption[]): FillToKillOption[] {
   // Core intent:

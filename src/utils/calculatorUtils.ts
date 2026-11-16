@@ -417,18 +417,6 @@ export function explainComboAccuracy(
   lines.unshift(`One-turn KO probability: ${(exact * 100).toFixed(2)}%`);
   return lines.join('\n');
 }
-function calculateGagAtkAcc(
-  gag: GagInfo,
-  targetLevel: number,
-  trackExp: number,
-): number {
-  if (gag.track === 'Trap') return 1;
-  const propAcc = getGagAccuracy(gag);
-  const targetDefense = getTargetDefense(targetLevel);
-  const atkAcc = applyAccuracyCaps(propAcc + trackExp + targetDefense, gag.track);
-  return atkAcc / 100;
-}
-
 function calculateLureHitChance(
   lureGags: GagInfo[],
   trapCount: number,
@@ -456,7 +444,7 @@ function calculateLureHitChance(
   return atkAcc / 100;
 }
 
-function calculateLureComboBonus(lureGags: GagInfo[]) {
+export function calculateLureComboBonus(lureGags: GagInfo[]) {
   if (lureGags.length <= 1) return 0;
   const grouped: Record<GagInfo['affectsNum'], GagInfo[]> = {
     All: [],

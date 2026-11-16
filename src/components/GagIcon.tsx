@@ -1,4 +1,3 @@
-import React from 'react';
 import type { GagInfo } from '../types';
 import { GAGS } from '../data/gagsInfo';
 

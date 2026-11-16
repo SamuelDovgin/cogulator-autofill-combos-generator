@@ -1,9 +1,10 @@
 import './App.css';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useSound } from 'use-sound';
 
 import { Header } from './components/Header';
+import { PlannerToggle } from './components/PlannerToggle';
 import { CogDamageTable } from './components/CogDamageTable';
 import CalculationDisplay from './components/CalculationDisplay';
 import GagTrack from './components/GagTrack';
@@ -28,6 +29,7 @@ import clickSfxFile from '../assets/sounds/Click.mp3';
 import hoverSfxFile from '../assets/sounds/GUI_rollover.mp3';
 
 const HIDE_TOONUP = true;
+const QuickPlanner = lazy(() => import('./battle/QuickPlanner'));
 
 const LEVEL6_TRACKS = ['Trap', 'Lure', 'Sound', 'Throw', 'Squirt', 'Drop'] as const;
 
@@ -45,6 +47,8 @@ const DEFAULT_EXCLUDE = (() => {
   };
 })();
 
+
+type ExportedGag = Pick<GagInfo, 'track' | 'level' | 'name' | 'isOrganic'>;
 
 type FullSettingsV1 = {
   schemaVersion: 1;
@@ -70,7 +74,40 @@ type FullSettingsV1 = {
   };
 };
 
+function subscribeToMode(onChange: () => void) {
+  window.addEventListener('hashchange', onChange);
+  return () => window.removeEventListener('hashchange', onChange);
+}
+
+function isPlannerRoute() {
+  return window.location.hash === '#planner';
+}
+
 export default function App() {
+  const planner = useSyncExternalStore(subscribeToMode, isPlannerRoute);
+  const [openedPlanner, setOpenedPlanner] = useState(planner);
+  if (planner && !openedPlanner) setOpenedPlanner(true);
+
+  return (
+    <>
+      <div hidden={planner}><ComboCalculator /></div>
+      {openedPlanner && (
+        <div hidden={!planner}>
+          <Suspense fallback={
+            <div className="flex justify-end p-4">
+              <output className="mr-auto text-sm text-slate-200">Loading Battle Planner…</output>
+              <PlannerToggle active />
+            </div>
+          }>
+            <QuickPlanner visible={planner} />
+          </Suspense>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ComboCalculator() {
   const [selectedGags, setSelectedGags] = useState<GagInstance[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -100,7 +137,6 @@ export default function App() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Hover preview state (temporary, not committed)
-  const [hoveredGag, setHoveredGag] = useState<GagInfo | undefined>();
   const [previewGag, setPreviewGag] = useState<GagInstance | null>(null);
   const [previewLevel, setPreviewLevel] = useState<number | null>(null);
 
@@ -189,7 +225,7 @@ export default function App() {
     return displaySelectedGags.filter((g) => g.track !== 'Lure' && g.track !== 'Trap');
   }, [displaySelectedGags, isTargetAlreadyLured]);
 
-  const { totalDamage, baseDamage, groupBonus, lureBonus, organicBonus } = useMemo(() => {
+  const { totalDamage, baseDamage, groupBonus, lureBonus } = useMemo(() => {
     return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
   }, [calcSelectedGags, isTargetAlreadyLured]);
 
@@ -263,7 +299,6 @@ export default function App() {
     setTargetLevel(DEFAULT_TARGET_LEVEL);
     setPreviewLevel(null);
     setPreviewGag(null);
-    setHoveredGag(undefined);
     setMaxToons(4);
     setToonRestrictions(['none', 'none', 'none', 'none']);
     setExcludeLevels(DEFAULT_EXCLUDE);
@@ -535,12 +570,9 @@ export default function App() {
     );
   };
 
-  // Hover handlers
-  // - Palette hover (gag tray): temporary "preview" add
-  // - Selected-gag hover: info only
+  // Preview a gag without adding it to the selected combo.
   const handlePaletteGagHover = useCallback(
     (gag?: GagInfo) => {
-      setHoveredGag(gag);
       if (!gag) {
         setPreviewGag(null);
         return;
@@ -554,10 +586,6 @@ export default function App() {
     },
     [selectedGags.length, maxToons],
   );
-
-  const handleSelectedGagHover = useCallback((gag?: GagInfo) => {
-    setHoveredGag(gag);
-  }, []);
 
   const handleCogLevelHover = useCallback((level: number | undefined) => {
     setPreviewLevel(level ?? null);
@@ -683,7 +711,7 @@ export default function App() {
         // If doesn't kill: only highlight gags that make it reach kill threshold.
         if (!alreadyKills && dmg < hp) continue;
 
-        const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride });
+        const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride: targetHpOverride });
         scored.push({ key: keyOf(gag), p });
       }
     }
@@ -708,7 +736,6 @@ export default function App() {
   return (
     <SfxContext.Provider
       value={{
-        soundEnabled,
         playClickSfx,
         playHoverSfx,
       }}
@@ -1002,7 +1029,6 @@ export default function App() {
                   onAlreadyLuredChange={setIsTargetAlreadyLured}
                   onSelectionChanged={handleSelectionChanged}
                   totalDamage={totalDamage}
-                  onGagHover={handleSelectedGagHover}
                 />
 
                 <div className="mt-3 space-y-1 text-sm text-slate-200">
@@ -1014,8 +1040,7 @@ export default function App() {
                   <div className="opacity-90" title={damageExplanation}>
                     Base <span className="font-cog">- {baseDamage}</span> | Group{' '}
                     <span className="font-cog">- {groupBonus}</span> | Lure{' '}
-                    <span className="font-cog">- {lureBonus}</span> | Organic{' '}
-                    <span className="font-cog">- {organicBonus}</span>
+                    <span className="font-cog">- {lureBonus}</span>
                   </div>
                   <div>
                     <span className="font-bold text-white">Max Cog Level:</span>{' '}

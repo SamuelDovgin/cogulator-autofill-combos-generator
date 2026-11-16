@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
-import type { GagInfo, GagTrack } from '../types';
+import type { GagInfo } from '../types';
 import { GagTracks } from '../data/gagTracksInfo';
 import type { GagConserveWeights } from '../utils/fillToKillOptionsWorker';
 import { DEFAULT_GAG_CONSERVE_WEIGHTS } from '../utils/defaultSettings';
@@ -47,11 +47,8 @@ export default function GagConserveWeightsModal({ weights, onChange, onClose }: 
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Buttoon
-              label="Reset"
-              onClick={() => onChange(buildDefaultWeights())}
-            />
-            <Buttoon label="Close" onClick={onClose} />
+            <Buttoon type="button" onClick={() => onChange(buildDefaultWeights())}>Reset</Buttoon>
+            <Buttoon type="button" onClick={onClose}>Close</Buttoon>
           </div>
         </div>
 

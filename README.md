@@ -14,7 +14,21 @@ https://www.ethanyhong.me/ttcalc/
 ## Get Started
 - Get [Node.js](https://nodejs.org/en)
 - Run `npm install` in the base of the repo.
-- Run local dev server by running `npm run dev` then go to https://localhost:5173 in your browser.
+- Run `npm run dev` and open the local URL Vite prints.
+
+## Battle Planner
+
+Use **Battle Planner** in the upper-right corner of Cogulator to open the experimental planner. The calculator starts by default and keeps its current selections when you switch back.
+
+Tap up to four levels for an automatic one-turn recommendation. Choose **Boiler Active** to include the boss, then enter its phase and remaining HP. The default assumes four maxed, non-organic Toons with every track available and keeps level 7 gags off. Balanced uses an 80% estimated clear target and favors cheaper lineups that meet it.
+
+After the turn, tap a surviving Cog to get a next-turn plan. Tap additional survivors if needed, or use **All survived** or **All Cogs cleared**. Unknown survivor HP defaults to full HP until you enter an observed value. **Undo recovery** restores the original lineup. **Next Wave** clears the Cogs, and **Repeat** restores the last wave’s levels.
+
+Expand **Advanced** for a separate projected plan over up to 12 rounds. It starts with a copy of the quick lineup and accepts per-Toon stock, organic tracks, remotes, Laff, active statuses, and Boiler effects. **Record round outcome** loads the projection so you can correct it before replanning.
+
+The planners use a bounded search. Quick clear odds use modeled hit and miss branches, including shared rolls. The advanced forecast shows the estimated chance of its planned hit sequence. Both use the calculator’s 95% cap approximation because the live game’s soft-cap thresholds are unpublished.
+
+Official references for the planner. [Cog HP and group damage](https://cdn.toontownrewritten.com/community/notices/Rebalancing_Update_December_2021.pdf) · [Stun and Lure changes](https://www.toontownrewritten.com/news/item/877/cogs-inc-is-under-new-management) · [Boiler and remotes](https://www.toontownrewritten.com/taskforce/battles) · [Accuracy soft cap](https://www.toontownrewritten.com/news/release-notes/all).
 
 ## Changelog
 

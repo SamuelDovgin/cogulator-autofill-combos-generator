@@ -14,7 +14,6 @@ interface Props {
   onAlreadyLuredChange?: (next: boolean) => void;
   onSelectionChanged: (gags: GagInstance[]) => void;
   totalDamage: number;
-  onGagHover: (gag: GagInstance | undefined) => void;
 }
 
 export default function CalculationDisplay({
@@ -23,7 +22,6 @@ export default function CalculationDisplay({
   onAlreadyLuredChange,
   onSelectionChanged,
   totalDamage,
-  onGagHover,
 }: Props) {
   const orderedGroupedGags = useMemo(() => {
     const orderedGags = [...selectedGags].sort((a, b) => {
@@ -152,27 +150,13 @@ export default function CalculationDisplay({
                 isPreview && 'opacity-60',
                 isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap') && 'opacity-70',
               )}
-              disabled={
-                isPreview ||
-                (!isPreview &&
-                  ((isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap')) ||
-                    (i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap')))
-              }
-              disabledVariant={
-                !isPreview &&
-                  ((isTargetAlreadyLured && (gag.track === 'Lure' || gag.track === 'Trap')) ||
-                    (i > 0 && gag.track === 'Trap' && group[i - 1].track === 'Trap'))
-                  ? 'soft'
-                  : undefined
-              }
+              disabled={isPreview || allowSoftDisable}
+              disabledVariant={allowSoftDisable ? 'soft' : undefined}
               gag={gag}
               onGagClick={() => {
                 if (isPreview) return;
                 onSelectionChanged(selectedGags.filter(({ id }) => id !== gag.id));
-                onGagHover(undefined);
               }}
-              onMouseOver={() => onGagHover(gag)}
-              onMouseLeave={() => onGagHover(undefined)}
             />,
           );
         });

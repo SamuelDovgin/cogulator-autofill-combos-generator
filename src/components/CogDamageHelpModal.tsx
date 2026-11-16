@@ -60,7 +60,7 @@ export default function CogDamageHelpModal({ onClose }: Props) {
             <div className="flex justify-center my-4">
               <div className="w-full max-w-xs rounded-xl border border-gray-200 bg-gray-400 p-4 shadow-md flex items-center justify-center overflow-hidden">
                 <div className="w-full">
-                  <CogDamageGauge totalDamage={25} selectedGags={[]} />
+                  <CogDamageGauge hoveredGag={undefined} totalDamage={25} selectedGags={[]} />
                 </div>
               </div>
             </div>

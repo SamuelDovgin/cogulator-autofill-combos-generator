@@ -209,8 +209,7 @@ export function KillOptionsTable({
     const wLevels = weights.conserve ?? 0;
     const wTracks = weights.tracks ?? 0;
 
-    return options.map((opt, idx) => {
-      const allGags = combinedGagsByOption[idx];
+    return combinedGagsByOption.map((allGags, idx) => {
       const accTip = explainComboAccuracy(allGags, targetLevel, {
         initialLured: isTargetAlreadyLured,
         targetHpOverride,
