@@ -350,7 +350,10 @@ export function KillOptionsTable({
         ) : (
           <div
             ref={listRef}
-            className={`max-h-[600px] w-full ${RESULTS_PANEL_MIN_HEIGHT_CLASS} overflow-y-auto overflow-x-visible pr-3 min-[900px]:w-fit`}
+            role="region"
+            aria-label="Kill combo results"
+            tabIndex={0}
+            className={`kill-combo-results max-h-[600px] w-full ${RESULTS_PANEL_MIN_HEIGHT_CLASS} overflow-auto pr-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-400 min-[900px]:w-fit`}
           >
             <table className="w-full table-auto text-left text-sm min-[900px]:w-fit">
               <thead className="text-xs uppercase tracking-wider text-slate-300/80">

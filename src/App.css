@@ -1,2 +1,5 @@
-/* Styles are mostly Tailwind + src/index.css.
-   This file exists to satisfy the import in App.tsx. */
+.kill-combo-results {
+  color-scheme: dark;
+  scrollbar-color: var(--color-slate-500) transparent;
+  scrollbar-width: thin;
+}
