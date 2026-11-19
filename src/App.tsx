@@ -938,6 +938,19 @@ function ComboCalculator() {
                           >
                             None
                           </button>
+                          <button
+                            type="button"
+                            className="rounded border border-slate-700 bg-slate-800/40 px-2 py-0.5 text-xs text-slate-200 hover:bg-slate-800/70"
+                            title="Restore the default level 6 exclusions"
+                            onClick={() =>
+                              setExcludeLevels((p) => ({
+                                ...p,
+                                level6ByTrack: { ...DEFAULT_EXCLUDE.level6ByTrack },
+                              }))
+                            }
+                          >
+                            Default
+                          </button>
                         </div>
                         {tracksToRender.map((t) => {
                           const track = t.name as GagTrackName;
