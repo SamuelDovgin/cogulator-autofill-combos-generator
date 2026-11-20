@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { BoilerLaffGuide } from '../components/BoilerLaffGuide';
 import { PlannerToggle } from '../components/PlannerToggle';
 import { RoundActions } from './BattleResults';
 import {
@@ -326,7 +327,7 @@ export default function QuickPlanner({ visible }: { visible: boolean }) {
         if (
           event.target instanceof HTMLElement &&
           event.target.closest(
-            'input, select, textarea, [contenteditable], .quick-advanced',
+            'input, select, textarea, dialog, [contenteditable], .quick-advanced',
           )
         )
           return;
@@ -348,7 +349,10 @@ export default function QuickPlanner({ visible }: { visible: boolean }) {
             </h1>
             <p>Experimental · Four-Toon lineup</p>
           </div>
-          <PlannerToggle active />
+          <div className="flex flex-wrap items-center gap-2">
+            <BoilerLaffGuide />
+            <PlannerToggle active />
+          </div>
         </header>
 
         <div className="battle-layout quick-layout">

@@ -1,6 +1,7 @@
 import VolumeOffIcon from '../../assets/icons/volume-off.svg?react';
 import VolumeOnIcon from '../../assets/icons/volume-on.svg?react';
 import { APP_NAME, APP_SHORT_NAME, APP_TAGLINE } from '../constants/site';
+import { BoilerLaffGuide } from './BoilerLaffGuide';
 import { BrandMark } from './BrandMark';
 import { PlannerToggle } from './PlannerToggle';
 
@@ -52,7 +53,8 @@ export function Header({
           >
             Settings JSON
           </button>
-          <div className="ml-auto">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <BoilerLaffGuide />
             <PlannerToggle />
           </div>
         </div>
