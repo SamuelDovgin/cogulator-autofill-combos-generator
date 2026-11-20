@@ -682,7 +682,7 @@ function ComboCalculator() {
     if (effectiveTargetLevel === null) return {} as Partial<Record<string, number>>;
     if (calcSelectedGags.length >= maxToons) return {} as Partial<Record<string, number>>;
 
-    const hp = targetHpOverride ?? calculateCogHealth(effectiveTargetLevel);
+    const hp = effectiveTargetHpOverride ?? calculateCogHealth(effectiveTargetLevel);
 
     const baseAllHitDamage = calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured }).totalDamage;
     const alreadyKills = baseAllHitDamage >= hp;
@@ -711,7 +711,7 @@ function ComboCalculator() {
         // If doesn't kill: only highlight gags that make it reach kill threshold.
         if (!alreadyKills && dmg < hp) continue;
 
-        const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride: targetHpOverride });
+        const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride: effectiveTargetHpOverride });
         scored.push({ key: keyOf(gag), p });
       }
     }
@@ -728,7 +728,7 @@ function ComboCalculator() {
       out[s.key] = Math.max(0, Math.min(1, t));
     }
     return out;
-  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, targetHpOverride]);
+  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, effectiveTargetHpOverride]);
 
 
 
