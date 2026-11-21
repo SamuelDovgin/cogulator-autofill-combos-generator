@@ -60,6 +60,8 @@ interface Props {
   onGagConserveWeightsChange: (next: GagConserveWeights) => void;
   hideOverkillAdditions: boolean;
   onHideOverkillChange: (hide: boolean) => void;
+  conserveLevel7Gags: boolean;
+  onConserveLevel7GagsChange: (conserve: boolean) => void;
   showScores: boolean;
   onShowScoresChange: (show: boolean) => void;
   maxGenerated: number;
@@ -88,6 +90,8 @@ export function KillOptionsTable({
   onGagConserveWeightsChange,
   hideOverkillAdditions,
   onHideOverkillChange,
+  conserveLevel7Gags,
+  onConserveLevel7GagsChange,
   showScores,
   onShowScoresChange,
   maxGenerated,
@@ -468,6 +472,8 @@ export function KillOptionsTable({
           onOpenGagWeights={() => setShowGagWeights(true)}
           hideOverkillAdditions={hideOverkillAdditions}
           onHideOverkillChange={onHideOverkillChange}
+          conserveLevel7Gags={conserveLevel7Gags}
+          onConserveLevel7GagsChange={onConserveLevel7GagsChange}
           showScores={showScores}
           onShowScoresChange={onShowScoresChange}
           maxGenerated={maxGenerated}

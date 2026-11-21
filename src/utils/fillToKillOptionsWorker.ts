@@ -53,6 +53,7 @@ export interface FillToKillRequest {
   sortWeights?: Partial<SortWeights>;
   gagConserveWeights?: GagConserveWeights;
   hideOverkillAdditions?: boolean;
+  conserveLevel7Gags?: boolean;
   maxResults?: number;
   maxGenerated?: number; // soft cap on number of successful kill options generated
 
@@ -404,14 +405,26 @@ function trackCountKey(gags: GagInfo[]) {
     .join('|');
 }
 
-function bestOfEquivalent(a: FillToKillOption, b: FillToKillOption): FillToKillOption {
+// Three points let the one-Opera exact kill tie the cheapest two-Opera line
+// on cost even when levels 1–3 are allowed.
+const LEVEL_7_CONSERVATION_PENALTY = 3;
+
+function bestOfEquivalent(
+  a: FillToKillOption,
+  b: FillToKillOption,
+  level7Penalty: number,
+): FillToKillOption {
   // Choose the one that "conserves" gags better among equivalent OHKO% + track composition.
   const maxA = maxGagLevel(a.addedGags);
   const maxB = maxGagLevel(b.addedGags);
   if (maxA !== maxB) return maxA < maxB ? a : b;
 
-  const sumA = totalGagLevels(a.addedGags);
-  const sumB = totalGagLevels(b.addedGags);
+  const cost = (gags: GagInfo[]) => gags.reduce(
+    (sum, gag) => sum + gag.level + (gag.level === 7 ? level7Penalty : 0),
+    0,
+  );
+  const sumA = cost(a.addedGags);
+  const sumB = cost(b.addedGags);
   if (sumA !== sumB) return sumA < sumB ? a : b;
 
   if (a.overkill !== b.overkill) return a.overkill < b.overkill ? a : b;
@@ -420,12 +433,16 @@ function bestOfEquivalent(a: FillToKillOption, b: FillToKillOption): FillToKillO
   return a;
 }
 
-function filterEquivalentOverkill(options: FillToKillOption[]): FillToKillOption[] {
+function filterEquivalentOverkill(
+  options: FillToKillOption[],
+  conserveLevel7Gags: boolean,
+): FillToKillOption[] {
   // User-defined: only remove options that have the SAME
   // - number of added gags
   // - track composition
   // - one-turn KO chance (to 0.1% as displayed)
-  // keeping the one that uses lower-level gags.
+  // keeping the one with lower gag cost.
+  const level7Penalty = conserveLevel7Gags ? LEVEL_7_CONSERVATION_PENALTY : 0;
   const map = new Map<string, FillToKillOption>();
   for (const opt of options) {
     const accKey = Math.round(opt.accuracy * 1000); // 0.1% bins in probability space
@@ -435,7 +452,7 @@ function filterEquivalentOverkill(options: FillToKillOption[]): FillToKillOption
       map.set(key, opt);
       continue;
     }
-    map.set(key, bestOfEquivalent(prev, opt));
+    map.set(key, bestOfEquivalent(prev, opt, level7Penalty));
   }
   return [...map.values()];
 }
@@ -697,9 +714,14 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
       (req as any).toggles?.hideOverkillAdditions
     );
 
-  const optionsToSort = hideOverkillAdditions
-    ? filterSupersetsWithNoDisplayedAccuracyGain(filterEquivalentOverkill(allOptions))
-    : allOptions;
+  let optionsToSort = allOptions;
+  if (hideOverkillAdditions) {
+    // Under level 7 conservation, compare only lines that survive without redundant gags.
+    // Otherwise a redundant winner can knock out every finisher in its group.
+    optionsToSort = req.conserveLevel7Gags
+      ? filterEquivalentOverkill(filterSupersetsWithNoDisplayedAccuracyGain(allOptions), true)
+      : filterSupersetsWithNoDisplayedAccuracyGain(filterEquivalentOverkill(allOptions, false));
+  }
 
   const maxResults = req.maxResults ?? (req as any).toggles?.maxResults ?? 20;
 

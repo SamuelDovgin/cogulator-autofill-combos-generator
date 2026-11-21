@@ -63,6 +63,7 @@ type FullSettingsV1 = {
     sortWeights: SortWeights;
     gagConserveWeights: GagConserveWeights;
     hideOverkillAdditions: boolean;
+    conserveLevel7Gags: boolean;
     maxGenerated: number;
     showKillHints: boolean;
     greyOutExcludedLevels: boolean;
@@ -122,6 +123,7 @@ function ComboCalculator() {
   const [gagConserveWeights, setGagConserveWeights] = useState<GagConserveWeights>({ ...DEFAULT_GAG_CONSERVE_WEIGHTS });
   const preferAccuracy = sortMode === 'accuracy';
   const [hideOverkillAdditions, setHideOverkillAdditions] = useState(true);
+  const [conserveLevel7Gags, setConserveLevel7Gags] = useState(false);
   const [showScores, setShowScores] = useState(false);
   const [maxGenerated, setMaxGenerated] = useState(DEFAULT_MAX_GENERATED);
   const [maxDisplayed, setMaxDisplayed] = useState(30);
@@ -307,6 +309,7 @@ function ComboCalculator() {
     setSortWeights(DEFAULT_SORT_WEIGHTS);
     setGagConserveWeights({ ...DEFAULT_GAG_CONSERVE_WEIGHTS });
     setHideOverkillAdditions(true);
+    setConserveLevel7Gags(false);
     setMaxGenerated(DEFAULT_MAX_GENERATED);
     setShowKillHints(true);
     setGreyOutExcludedLevels(true);
@@ -329,6 +332,7 @@ function ComboCalculator() {
         sortWeights,
         gagConserveWeights,
         hideOverkillAdditions,
+        conserveLevel7Gags,
         maxGenerated,
         showKillHints,
         greyOutExcludedLevels,
@@ -358,6 +362,7 @@ function ComboCalculator() {
     sortWeights,
     gagConserveWeights,
     hideOverkillAdditions,
+    conserveLevel7Gags,
     maxGenerated,
     showKillHints,
     greyOutExcludedLevels,
@@ -476,6 +481,7 @@ function ComboCalculator() {
       }
 
       if (typeof s.hideOverkillAdditions === 'boolean') setHideOverkillAdditions(s.hideOverkillAdditions);
+      setConserveLevel7Gags(s.conserveLevel7Gags === true);
 
       if (typeof (s as any).showKillHints === 'boolean') setShowKillHints((s as any).showKillHints);
       if (typeof (s as any).greyOutExcludedLevels === 'boolean') setGreyOutExcludedLevels((s as any).greyOutExcludedLevels);
@@ -608,6 +614,7 @@ function ComboCalculator() {
       gagConserveWeights,
       preferAccuracy,
       hideOverkillAdditions,
+      conserveLevel7Gags,
       toonRestrictions,
       maxResults: maxDisplayed,
       maxGenerated,
@@ -625,6 +632,7 @@ function ComboCalculator() {
     gagConserveWeights,
     preferAccuracy,
     hideOverkillAdditions,
+    conserveLevel7Gags,
     toonRestrictions,
     maxGenerated,
     maxDisplayed,
@@ -1140,6 +1148,8 @@ function ComboCalculator() {
                   onGagConserveWeightsChange={setGagConserveWeights}
                   hideOverkillAdditions={hideOverkillAdditions}
                   onHideOverkillChange={handleHideOverkillChange}
+                  conserveLevel7Gags={conserveLevel7Gags}
+                  onConserveLevel7GagsChange={setConserveLevel7Gags}
                   showScores={showScores}
                   onShowScoresChange={setShowScores}
                   maxGenerated={maxGenerated}

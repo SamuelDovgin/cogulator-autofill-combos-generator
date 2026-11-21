@@ -11,6 +11,8 @@ type Props = {
   onOpenGagWeights: () => void;
   hideOverkillAdditions: boolean;
   onHideOverkillChange: (hide: boolean) => void;
+  conserveLevel7Gags: boolean;
+  onConserveLevel7GagsChange: (conserve: boolean) => void;
   showScores: boolean;
   onShowScoresChange: (show: boolean) => void;
   maxGenerated: number;
@@ -66,6 +68,8 @@ export default function KillComboSettingsModal({
   onOpenGagWeights,
   hideOverkillAdditions,
   onHideOverkillChange,
+  conserveLevel7Gags,
+  onConserveLevel7GagsChange,
   showScores,
   onShowScoresChange,
   maxGenerated,
@@ -227,6 +231,22 @@ export default function KillComboSettingsModal({
                   onChange={(e) => onHideOverkillChange(e.target.checked)}
                 />
                 Hide overkill additions
+              </label>
+
+              <label className="flex items-start gap-2 text-sm text-slate-200 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={conserveLevel7Gags}
+                  disabled={!hideOverkillAdditions}
+                  onChange={(e) => onConserveLevel7GagsChange(e.target.checked)}
+                />
+                <span>
+                  Conserve level 7 gags
+                  <span className="mt-1 block text-xs text-slate-400">
+                    Adds a small cost for each level 7 gag when Hide overkill additions chooses between equivalent combos.
+                  </span>
+                </span>
               </label>
 
               <label className="space-y-1 text-sm">
