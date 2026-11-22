@@ -112,7 +112,7 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
   }
 });
 
-it('only shows an organic variant when it reaches lethal damage or changes displayed KO chance', async () => {
+it('prefers the organic variant at equal displayed KO chance and keeps different chances', async () => {
   vi.resetModules();
   const addEventListener = vi.fn<
     (name: 'message', handler: (event: { data: FillToKillRequest }) => void) => void
@@ -140,16 +140,17 @@ it('only shows an organic variant when it reaches lethal damage or changes displ
     );
 
     for (const hideOverkillAdditions of [false, true]) {
-      const regular = pieLine(solve({ ...pieRequest, hideOverkillAdditions }));
-      expect(regular).toHaveLength(1);
-      expect(regular[0].totalDamage).toBe(119);
-      expect(regular[0].addedGags.some(({ isOrganic }) => isOrganic)).toBe(false);
-
-      const boosted = pieLine(solve({ ...pieRequest, hideOverkillAdditions, targetHpOverride: 120 }));
-      expect(boosted).toHaveLength(1);
-      expect(boosted[0].totalDamage).toBe(122);
-      expect(boosted[0].addedGags.filter(({ isOrganic }) => isOrganic)).toHaveLength(1);
+      for (const targetHpOverride of [110, 120]) {
+        const boosted = pieLine(solve({ ...pieRequest, hideOverkillAdditions, targetHpOverride }));
+        expect(boosted).toHaveLength(1);
+        expect(boosted[0].totalDamage).toBe(122);
+        expect(boosted[0].addedGags.filter(({ isOrganic }) => isOrganic)).toHaveLength(1);
+      }
     }
+
+    const regular = pieLine(solve({ ...pieRequest, organicTracks: [] }));
+    expect(regular).toHaveLength(1);
+    expect(regular[0].totalDamage).toBe(119);
 
     const accuracyVariants = solve({
       targetLevel: 20,

@@ -365,7 +365,7 @@ function filterDuplicateOrganicVariants(options: FillToKillOption[]): FillToKill
     const previous = preferred.get(key);
     if (
       !previous ||
-      organicCount < previous.organicCount ||
+      organicCount > previous.organicCount ||
       (organicCount === previous.organicCount && option.overkill < previous.option.overkill)
     ) {
       preferred.set(key, { option, organicCount });
