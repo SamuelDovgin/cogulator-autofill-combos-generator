@@ -647,6 +647,8 @@ function ComboCalculator() {
     setPreviewLevel(level ?? null);
   }, []);
 
+  const isPreviewSearch = previewLevel !== null || calcSelectedGags.some((gag) => gag.isPreview);
+
   // Keep fill suggestions up to date for the effective selection & level.
   useEffect(() => {
     if (effectiveTargetLevel === null) return;
@@ -667,6 +669,7 @@ function ComboCalculator() {
       conserveLevel7Gags,
       toonRestrictions: activeToonRestrictions,
       organicTracks: organicRoster,
+      isPreview: isPreviewSearch,
       maxResults: maxDisplayed,
       maxGenerated,
     });
@@ -686,6 +689,7 @@ function ComboCalculator() {
     conserveLevel7Gags,
     activeToonRestrictions,
     organicRoster,
+    isPreviewSearch,
     maxGenerated,
     maxDisplayed,
     isTargetAlreadyLured,

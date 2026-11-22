@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GAGS } from '../data/gagsInfo';
 import { GagTracks } from '../data/gagTracksInfo';
 import type { GagInfo, GagTrack as GagTrackName } from '../types';
-import type { FillToKillOption, ToonRestriction, SortMode, SortWeights, GagConserveWeights } from '../utils/fillToKillOptionsWorker';
+import type { FillToKillOption, FillToKillRequest, ToonRestriction, SortMode, SortWeights, GagConserveWeights } from '../utils/fillToKillOptionsWorker';
 import type { OrganicTrack } from '../utils/toonTracks';
 
 // Vite worker import
@@ -40,6 +40,7 @@ type ComputeArgs = {
   organicTracks?: OrganicTrack[];
   maxResults?: number;
   maxGenerated?: number;
+  isPreview?: boolean;
 };
 
 type WorkerResponse = {
@@ -47,41 +48,70 @@ type WorkerResponse = {
   requestId: number;
 };
 
+const PREVIEW_SETTLE_MS = 60;
+const CACHE_SIZE = 24;
+const AVAILABLE_GAGS: GagInfo[] = Object.values(GAGS);
+
 export function useFillToKillOptions() {
   const workerRef = useRef<Worker | null>(null);
-  const latestRequestId = useRef(0);
+  const previewTimer = useRef<number | null>(null);
+  const inFlight = useRef<{ id: number; key: string } | null>(null);
+  const nextRequestId = useRef(0);
+  const cache = useRef(new Map<string, FillToKillOption[]>());
 
   const [fillToKillLoading, setFillToKillLoading] = useState(false);
   const [fillToKillOptions, setFillToKillOptions] = useState<FillToKillOption[]>([]);
 
-  useEffect(() => {
+  const cancelSearch = useCallback(() => {
+    if (previewTimer.current !== null) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+
+    if (inFlight.current) {
+      // The solver is synchronous inside the worker. Termination stops obsolete work.
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      inFlight.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => {
+    cancelSearch();
+    workerRef.current?.terminate();
+    workerRef.current = null;
+  }, [cancelSearch]);
+
+  const getWorker = useCallback(() => {
+    if (workerRef.current) return workerRef.current;
     const worker = new FillToKillWorker();
     workerRef.current = worker;
 
-    const onMessage = (e: MessageEvent<WorkerResponse>) => {
-      if (e.data.requestId !== latestRequestId.current) return;
-      setFillToKillOptions(e.data?.options ?? []);
+    worker.onmessage = ({ data }: MessageEvent<WorkerResponse>) => {
+      const request = inFlight.current;
+      if (workerRef.current !== worker || !request || data.requestId !== request.id) return;
+      inFlight.current = null;
+      const options = data.options ?? [];
+      const entries = cache.current;
+      entries.set(request.key, options);
+      if (entries.size > CACHE_SIZE) {
+        const oldest = entries.keys().next();
+        if (!oldest.done) entries.delete(oldest.value);
+      }
+      setFillToKillOptions(options);
       setFillToKillLoading(false);
     };
 
     const onError = () => {
-      // Fail closed: stop spinner and clear options
+      if (workerRef.current !== worker) return;
+      cancelSearch();
       setFillToKillOptions([]);
       setFillToKillLoading(false);
     };
-
-    worker.addEventListener('message', onMessage);
-    worker.addEventListener('error', onError);
-    worker.addEventListener('messageerror', onError);
-
-    return () => {
-      worker.removeEventListener('message', onMessage);
-      worker.removeEventListener('error', onError);
-      worker.removeEventListener('messageerror', onError);
-      worker.terminate();
-      workerRef.current = null;
-    };
-  }, []);
+    worker.onerror = onError;
+    worker.onmessageerror = onError;
+    return worker;
+  }, [cancelSearch]);
 
   const computeFillToKillOptions = useCallback(
     ({
@@ -103,22 +133,15 @@ export function useFillToKillOptions() {
       organicTracks,
       maxResults = 30,
       maxGenerated = 2000,
+      isPreview = false,
     }: ComputeArgs) => {
-      const worker = workerRef.current;
-      if (!worker) return;
-
-      setFillToKillLoading(true);
-
-      const availableGags = Object.values(GAGS) as GagInfo[];
-
-      worker.postMessage({
-        requestId: ++latestRequestId.current,
+      cancelSearch();
+      const request: Omit<FillToKillRequest, 'requestId' | 'availableGags'> = {
         targetLevel,
         isTargetAlreadyLured,
         targetHpOverride,
         excludeLevels,
         currentGags,
-        availableGags,
         maxToons,
         maxResults,
         maxGenerated,
@@ -144,9 +167,40 @@ export function useFillToKillOptions() {
           isTargetAlreadyLured,
           targetHpOverride,
         },
+      };
+
+      // A hover ghost and the same committed gag have identical solver inputs.
+      const key = JSON.stringify({
+        ...request,
+        currentGags: currentGags.map(({ track, level, name, isOrganic, accuracy, affectsNum, dmgType, maxDmg, organicBonus }) =>
+          [track, level, name, Boolean(isOrganic), accuracy, affectsNum, dmgType, maxDmg, organicBonus],
+        ),
       });
+      const previous = cache.current.get(key);
+      if (previous) {
+        cache.current.delete(key);
+        cache.current.set(key, previous);
+        setFillToKillOptions(previous);
+        setFillToKillLoading(false);
+        return;
+      }
+
+      setFillToKillLoading(true);
+      const start = () => {
+        previewTimer.current = null;
+        const worker = getWorker();
+        const id = ++nextRequestId.current;
+        inFlight.current = { id, key };
+        worker.postMessage({ ...request, availableGags: AVAILABLE_GAGS, requestId: id });
+      };
+
+      if (isPreview) {
+        previewTimer.current = window.setTimeout(start, PREVIEW_SETTLE_MS);
+      } else {
+        start();
+      }
     },
-    []
+    [cancelSearch, getWorker],
   );
 
   return {
