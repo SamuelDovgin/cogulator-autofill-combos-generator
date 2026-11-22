@@ -111,3 +111,60 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
     vi.unstubAllGlobals();
   }
 });
+
+it('only shows an organic variant when it reaches lethal damage or changes displayed KO chance', async () => {
+  vi.resetModules();
+  const addEventListener = vi.fn<
+    (name: 'message', handler: (event: { data: FillToKillRequest }) => void) => void
+  >();
+  const postMessage = vi.fn<(result: { options: FillToKillOption[] }) => void>();
+  vi.stubGlobal('self', { addEventListener, postMessage });
+
+  try {
+    await import('../src/utils/fillToKillOptionsWorker');
+    const handleRequest = addEventListener.mock.calls[0][1];
+    const solve = (request: FillToKillRequest) => {
+      handleRequest({ data: request });
+      return postMessage.mock.lastCall?.[0].options ?? [];
+    };
+    const pieRequest = {
+      targetLevel: 9,
+      availableGags: [GAGS.WholeFruitPie, GAGS.SeltzerBottle],
+      currentGags: [],
+      maxToons: 4,
+      organicTracks: ['Throw', '', '', ''],
+    } satisfies FillToKillRequest;
+    const pieLine = (options: FillToKillOption[]) => options.filter(({ addedGags }) =>
+      addedGags.length === 4 &&
+      addedGags.filter(({ name }) => name === GAGS.WholeFruitPie.name).length === 3,
+    );
+
+    for (const hideOverkillAdditions of [false, true]) {
+      const regular = pieLine(solve({ ...pieRequest, hideOverkillAdditions }));
+      expect(regular).toHaveLength(1);
+      expect(regular[0].totalDamage).toBe(119);
+      expect(regular[0].addedGags.some(({ isOrganic }) => isOrganic)).toBe(false);
+
+      const boosted = pieLine(solve({ ...pieRequest, hideOverkillAdditions, targetHpOverride: 120 }));
+      expect(boosted).toHaveLength(1);
+      expect(boosted[0].totalDamage).toBe(122);
+      expect(boosted[0].addedGags.filter(({ isOrganic }) => isOrganic)).toHaveLength(1);
+    }
+
+    const accuracyVariants = solve({
+      targetLevel: 20,
+      targetHpOverride: 110,
+      availableGags: [GAGS.Foghorn, GAGS.BirthdayCake],
+      currentGags: [],
+      maxToons: 2,
+      organicTracks: ['Throw', ''],
+    }).filter(({ addedGags }) =>
+      addedGags.some(({ name }) => name === GAGS.Foghorn.name) &&
+      addedGags.some(({ name }) => name === GAGS.BirthdayCake.name),
+    );
+    expect(accuracyVariants.map(({ accuracy }) => (accuracy * 100).toFixed(1)).sort())
+      .toEqual(['85.5', '92.5']);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

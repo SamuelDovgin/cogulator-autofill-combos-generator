@@ -355,6 +355,25 @@ function trackCountKey(gags: GagInfo[]) {
 // on cost even when levels 1–3 are allowed.
 const LEVEL_7_CONSERVATION_PENALTY = 3;
 
+function filterDuplicateOrganicVariants(options: FillToKillOption[]): FillToKillOption[] {
+  const preferred = new Map<string, { option: FillToKillOption; organicCount: number }>();
+  for (const option of options) {
+    // Generated options list each base gag in the same order, with its organic variant adjacent.
+    const gags = option.addedGags.map(({ track, level, name }) => `${track}:${level}:${name}`).join('|');
+    const key = `${gags}|${(option.accuracy * 100).toFixed(1)}`;
+    const organicCount = option.addedGags.filter(({ isOrganic }) => isOrganic).length;
+    const previous = preferred.get(key);
+    if (
+      !previous ||
+      organicCount < previous.organicCount ||
+      (organicCount === previous.organicCount && option.overkill < previous.option.overkill)
+    ) {
+      preferred.set(key, { option, organicCount });
+    }
+  }
+  return Array.from(preferred.values(), ({ option }) => option);
+}
+
 function bestOfEquivalent(
   a: FillToKillOption,
   b: FillToKillOption,
@@ -648,13 +667,16 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
       (req as any).toggles?.hideOverkillAdditions
     );
 
-  let optionsToSort = allOptions;
+  const distinctOptions = candidates.some(({ gag }) => gag.isOrganic)
+    ? filterDuplicateOrganicVariants(allOptions)
+    : allOptions;
+  let optionsToSort = distinctOptions;
   if (hideOverkillAdditions) {
     // Under level 7 conservation, compare only lines that survive without redundant gags.
     // Otherwise a redundant winner can knock out every finisher in its group.
     optionsToSort = req.conserveLevel7Gags
-      ? filterEquivalentOverkill(filterSupersetsWithNoDisplayedAccuracyGain(allOptions), true)
-      : filterSupersetsWithNoDisplayedAccuracyGain(filterEquivalentOverkill(allOptions, false));
+      ? filterEquivalentOverkill(filterSupersetsWithNoDisplayedAccuracyGain(distinctOptions), true)
+      : filterSupersetsWithNoDisplayedAccuracyGain(filterEquivalentOverkill(distinctOptions, false));
   }
 
   const maxResults = req.maxResults ?? (req as any).toggles?.maxResults ?? 20;
