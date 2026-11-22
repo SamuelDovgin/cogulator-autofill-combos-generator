@@ -61,3 +61,53 @@ it('conserves Operas while keeping useful two-Opera finishers in the results', a
     vi.unstubAllGlobals();
   }
 });
+
+it('fits organic and regular gags into distinct available Toon slots', async () => {
+  vi.resetModules();
+  const addEventListener = vi.fn<
+    (name: 'message', handler: (event: { data: FillToKillRequest }) => void) => void
+  >();
+  const postMessage = vi.fn<(result: { options: FillToKillOption[] }) => void>();
+  vi.stubGlobal('self', { addEventListener, postMessage });
+
+  try {
+    await import('../src/utils/fillToKillOptionsWorker');
+    const handleRequest = addEventListener.mock.calls[0][1];
+    const solve = (request: FillToKillRequest) => {
+      handleRequest({ data: request });
+      return postMessage.mock.lastCall?.[0].options;
+    };
+    const organicFoghorn = { ...GAGS.Foghorn, isOrganic: true };
+    const soundRequest = {
+      targetLevel: 15,
+      targetHpOverride: 258,
+      availableGags: [GAGS.Foghorn],
+      currentGags: [organicFoghorn],
+      maxToons: 4,
+      organicTracks: ['Sound', 'Sound', 'Sound', ''],
+      hideOverkillAdditions: true,
+    } satisfies FillToKillRequest;
+
+    expect(solve(soundRequest)).toMatchObject([
+      { addedGags: [GAGS.Foghorn, organicFoghorn, organicFoghorn], totalDamage: 258 },
+    ]);
+    expect(solve({ ...soundRequest, targetHpOverride: 259 })).toEqual([]);
+    expect(solve({ ...soundRequest, organicTracks: ['Sound', 'Sound', 'Sound', 'Sound'] }))
+      .toMatchObject([{ addedGags: [organicFoghorn, organicFoghorn, organicFoghorn], totalDamage: 264 }]);
+    expect(solve({ ...soundRequest, organicTracks: undefined, currentGags: [], targetHpOverride: 50 }))
+      .toMatchObject([{ addedGags: [GAGS.Foghorn], totalDamage: 50 }]);
+
+    const dropRequest = {
+      ...soundRequest,
+      targetHpOverride: 150,
+      availableGags: [GAGS.GrandPiano],
+      maxToons: 2,
+      organicTracks: ['Sound', ''],
+    } satisfies FillToKillRequest;
+    expect(solve(dropRequest)).toMatchObject([{ addedGags: [GAGS.GrandPiano] }]);
+    expect(solve({ ...dropRequest, toonRestrictions: ['none', 'dropless'] })).toEqual([]);
+    expect(solve({ ...dropRequest, toonRestrictions: ['soundless', 'none'] })).toEqual([]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

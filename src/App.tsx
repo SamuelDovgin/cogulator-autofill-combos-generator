@@ -23,10 +23,13 @@ import type { ToonRestriction, SortMode, SortWeights, GagConserveWeights } from 
 import { SfxContext } from './context/sfxContext';
 import { defaultEnabledTracks, useFillToKillOptions } from './hooks/useFillToKillOptions';
 import { findCanonicalGag } from './utils/gagLookup';
+import { canAssignGagsToToons, eligibleToons, toonAllows } from './utils/toonTracks';
+import type { OrganicTrack } from './utils/toonTracks';
 import { DEFAULT_GAG_CONSERVE_WEIGHTS, DEFAULT_MAX_GENERATED, DEFAULT_SORT_MODE, DEFAULT_SORT_WEIGHTS, DEFAULT_TARGET_LEVEL } from './utils/defaultSettings';
 
 import clickSfxFile from '../assets/sounds/Click.mp3';
 import hoverSfxFile from '../assets/sounds/GUI_rollover.mp3';
+import organicLeaf from '../assets/organic_leaf.webp';
 
 const HIDE_TOONUP = true;
 const QuickPlanner = lazy(() => import('./battle/QuickPlanner'));
@@ -57,6 +60,8 @@ type FullSettingsV1 = {
     soundEnabled: boolean;
     maxToons: 1 | 2 | 3 | 4;
     toonRestrictions: ToonRestriction[];
+    organicEnabled?: boolean;
+    organicTracks?: OrganicTrack[];
     excludeLevels: typeof DEFAULT_EXCLUDE;
     enabledTracks: Record<GagTrackName, boolean>;
     sortMode: SortMode;
@@ -114,6 +119,8 @@ function ComboCalculator() {
 
   const [maxToons, setMaxToons] = useState<1 | 2 | 3 | 4>(4);
   const [toonRestrictions, setToonRestrictions] = useState<ToonRestriction[]>(['none', 'none', 'none', 'none']);
+  const [organicEnabled, setOrganicEnabled] = useState(false);
+  const [organicTracks, setOrganicTracks] = useState<OrganicTrack[]>([]);
   const [excludeLevels, setExcludeLevels] = useState(DEFAULT_EXCLUDE);
   const [enabledTracks, setEnabledTracks] = useState<Record<GagTrackName, boolean>>(
     defaultEnabledTracks(),
@@ -227,6 +234,18 @@ function ComboCalculator() {
     return displaySelectedGags.filter((g) => g.track !== 'Lure' && g.track !== 'Trap');
   }, [displaySelectedGags, isTargetAlreadyLured]);
 
+  const organicRoster = organicEnabled ? organicTracks : undefined;
+  const activeToonRestrictions = useMemo(
+    () => Array.from({ length: maxToons }, (_, i) => toonRestrictions[i] ?? 'none'),
+    [maxToons, toonRestrictions],
+  );
+  const matchesRoster = useCallback(
+    (gags: GagInfo[]) => canAssignGagsToToons(
+      gags.map((gag) => eligibleToons(gag, activeToonRestrictions, organicRoster)),
+    ),
+    [activeToonRestrictions, organicRoster],
+  );
+
   const { totalDamage, baseDamage, groupBonus, lureBonus } = useMemo(() => {
     return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
   }, [calcSelectedGags, isTargetAlreadyLured]);
@@ -303,6 +322,8 @@ function ComboCalculator() {
     setPreviewGag(null);
     setMaxToons(4);
     setToonRestrictions(['none', 'none', 'none', 'none']);
+    setOrganicEnabled(false);
+    setOrganicTracks([]);
     setExcludeLevels(DEFAULT_EXCLUDE);
     setEnabledTracks(defaultEnabledTracks());
     setSortMode(DEFAULT_SORT_MODE);
@@ -326,6 +347,8 @@ function ComboCalculator() {
         soundEnabled,
         maxToons,
         toonRestrictions,
+        organicEnabled,
+        organicTracks,
         excludeLevels,
         enabledTracks,
         sortMode,
@@ -356,6 +379,8 @@ function ComboCalculator() {
     soundEnabled,
     maxToons,
     toonRestrictions,
+    organicEnabled,
+    organicTracks,
     excludeLevels,
     enabledTracks,
     sortMode,
@@ -440,6 +465,17 @@ function ComboCalculator() {
             .map((v: any) => (typeof v === 'string' ? v : 'none')),
         );
       }
+
+      setOrganicEnabled(s.organicEnabled === true);
+      setOrganicTracks(
+        Array.isArray(s.organicTracks)
+          ? s.organicTracks.slice(0, 4).map((track: unknown, i: number) => {
+            const restriction = s.toonRestrictions?.[i] ?? 'none';
+            const knownTrack = GagTracks.find(({ name }) => name === track)?.name;
+            return knownTrack && toonAllows(knownTrack, restriction) ? knownTrack : '';
+          })
+          : [],
+      );
 
       if (s.excludeLevels && typeof s.excludeLevels === 'object') {
         // Be forgiving: merge with defaults.
@@ -542,13 +578,13 @@ function ComboCalculator() {
   const applyAddedGags = useCallback(
     (added: GagInfo[]) => {
       const base = selectedGags.slice(0, maxToons);
-      const resolved = added.map((g) => findCanonicalGag(g) ?? g);
-      const additions: GagInstance[] = resolved.map((g) => ({ ...g, id: getUniqueId() }));
+      if (organicEnabled && !matchesRoster([...base, ...added])) return;
+      const additions: GagInstance[] = added.map((g) => ({ ...g, id: getUniqueId() }));
       setSelectedGags([...base, ...additions].slice(0, maxToons));
       playClickSfx();
       setPreviewGag(null);
     },
-    [selectedGags, maxToons, playClickSfx],
+    [selectedGags, maxToons, organicEnabled, matchesRoster, playClickSfx],
   );
 
   const panelClassName =
@@ -615,7 +651,8 @@ function ComboCalculator() {
       preferAccuracy,
       hideOverkillAdditions,
       conserveLevel7Gags,
-      toonRestrictions,
+      toonRestrictions: activeToonRestrictions,
+      organicTracks: organicRoster,
       maxResults: maxDisplayed,
       maxGenerated,
     });
@@ -633,7 +670,8 @@ function ComboCalculator() {
     preferAccuracy,
     hideOverkillAdditions,
     conserveLevel7Gags,
-    toonRestrictions,
+    activeToonRestrictions,
+    organicRoster,
     maxGenerated,
     maxDisplayed,
     isTargetAlreadyLured,
@@ -712,6 +750,7 @@ function ComboCalculator() {
             isOrganic: false,
           },
         ];
+        if (organicEnabled && !matchesRoster(next)) continue;
 
         const dmg = calculateTotalDamage(next, { lured: isTargetAlreadyLured }).totalDamage;
 
@@ -736,7 +775,7 @@ function ComboCalculator() {
       out[s.key] = Math.max(0, Math.min(1, t));
     }
     return out;
-  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, effectiveTargetHpOverride]);
+  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, effectiveTargetHpOverride, organicEnabled, matchesRoster]);
 
 
 
@@ -772,7 +811,7 @@ function ComboCalculator() {
                 {/* Controls under graph */}
                 <div className={`${panelClassName} min-w-[300px]`}>
                   <div className="grid grid-cols-1 items-start gap-4 min-[900px]:grid-cols-[minmax(0,58%)_minmax(0,42%)] min-[900px]:gap-x-5">
-                    <div className="flex items-center gap-2 min-[900px]:col-start-1">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-[900px]:col-start-1">
                       <div className="text-sm font-bold text-slate-200">Toons:</div>
                       <div className="flex overflow-hidden rounded-md border border-blue-800">
                         {[1, 2, 3, 4].map((n) => (
@@ -791,6 +830,15 @@ function ComboCalculator() {
                           </button>
                         ))}
                       </div>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={organicEnabled}
+                          onChange={(e) => setOrganicEnabled(e.target.checked)}
+                        />
+                        <img src={organicLeaf} alt="" className="h-5 w-5 object-contain" />
+                        Organic gags
+                      </label>
                     </div>
 
                     <div className="flex w-full flex-col gap-3 min-[900px]:col-start-2 min-[900px]:row-start-1">
@@ -860,15 +908,21 @@ function ComboCalculator() {
                       <div className="text-sm font-bold text-slate-200">Missing track per Toon (optional):</div>
                       <div className="grid grid-cols-1 justify-items-start gap-2 min-[900px]:grid-cols-4 min-[900px]:gap-x-3">
                         {Array.from({ length: maxToons }).map((_, idx) => (
-                          <label key={idx} className="flex max-w-full items-center gap-1.5 text-xs text-slate-200">
-                            <span className="w-10 shrink-0 text-[11px] text-slate-300">Toon {idx + 1}</span>
+                          <div key={idx} className="grid grid-cols-[2.5rem_minmax(0,8.75rem)] items-center gap-1.5 text-xs text-slate-200">
+                            <label htmlFor={`toon-${idx}-missing-track`} className="text-[11px] text-slate-300">Toon {idx + 1}</label>
                             <select
-                              className="w-[8.75rem] max-w-full rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-xs text-slate-100"
+                              id={`toon-${idx}-missing-track`}
+                              aria-label={`Toon ${idx + 1} missing track`}
+                              className="w-full rounded-md border border-blue-800 bg-blue-950 px-2 py-1 text-xs text-slate-100"
                               value={toonRestrictions[idx] ?? 'none'}
                               onChange={(e) => {
-                                const next = [...toonRestrictions] as ToonRestriction[];
-                                next[idx] = e.target.value as ToonRestriction;
+                                const restriction = e.target.value as ToonRestriction;
+                                const next = [...activeToonRestrictions];
+                                next[idx] = restriction;
                                 setToonRestrictions(next);
+                                setOrganicTracks((tracks) => tracks.map((track, i) =>
+                                  i === idx && track && !toonAllows(track, restriction) ? '' : track,
+                                ));
                               }}
                             >
                               <option value="none">All tracks</option>
@@ -878,12 +932,31 @@ function ComboCalculator() {
                               <option value="soundless">Soundless</option>
                               <option value="dropless">Dropless</option>
                             </select>
-                          </label>
+                            {organicEnabled && (
+                              <select
+                                aria-label={`Toon ${idx + 1} organic track`}
+                                className="col-start-2 w-full rounded-md border border-emerald-700 bg-emerald-950 px-2 py-1 text-xs text-emerald-50"
+                                value={organicTracks[idx] ?? ''}
+                                onChange={(e) => {
+                                  const track = e.target.value as OrganicTrack;
+                                  setOrganicTracks((tracks) => Array.from(
+                                    { length: 4 },
+                                    (_, i) => i === idx ? track : tracks[i] ?? '',
+                                  ));
+                                }}
+                              >
+                                <option value="">No organic track</option>
+                                {GagTracks.filter(({ name }) => toonAllows(name, activeToonRestrictions[idx])).map(({ name }) => (
+                                  <option key={name} value={name}>Organic {name === 'Toonup' ? 'Toon-Up' : name}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
                         ))}
                       </div>
                       <div className="text-[11px] text-slate-300/80">
                         Assumes every Toon always has <span className="font-bold">Throw</span> +{' '}
-                        <span className="font-bold">Squirt</span>. Other tracks depend on the dropdown above.
+                        <span className="font-bold">Squirt</span>. Available tracks are maxed.
                       </div>
                     </div>
 
@@ -1051,6 +1124,11 @@ function ComboCalculator() {
                   onSelectionChanged={handleSelectionChanged}
                   totalDamage={totalDamage}
                 />
+                {organicEnabled && !matchesRoster(selectedGags) && (
+                  <p role="status" className="mt-2 text-sm text-amber-200">
+                    Your selected gags don’t fit the Toon roster. Adjust the gags or the tracks to see kill combos.
+                  </p>
+                )}
 
                 <div className="mt-3 space-y-1 text-sm text-slate-200">
                   <div>
@@ -1138,7 +1216,7 @@ function ComboCalculator() {
                   isTargetAlreadyLured={isTargetAlreadyLured}
                   targetHpOverride={targetHpOverride}
                   currentGags={calcSelectedGags}
-                  options={fillOptions}
+                  options={isFillLoading ? [] : fillOptions}
                   isLoading={isFillLoading}
                   sortMode={sortMode}
                   onSortModeChange={handleSortModeChange}

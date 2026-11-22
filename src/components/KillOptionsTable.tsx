@@ -17,7 +17,6 @@ import type {
 import GagConserveWeightsModal from './GagConserveWeightsModal';
 import KillComboSettingsModal from './KillComboSettingsModal';
 import ComboPreview from './ComboPreview';
-import { findCanonicalGag } from '../utils/gagLookup';
 import AccuracyPopover from './AccuracyPopover';
 
 const formatAccuracy = (value: number) =>
@@ -29,9 +28,8 @@ function buildComboItems(gags: GagInfo[]) {
   const counts: Record<string, { gag: GagInfo; count: number }> = {};
 
   for (const g of gags) {
-    const canonical = findCanonicalGag(g) ?? g;
-    const key = `${canonical.track}:${canonical.level}:${canonical.name}`;
-    counts[key] = counts[key] ?? { gag: canonical, count: 0 };
+    const key = `${g.track}:${g.level}:${g.name}:${!!g.isOrganic}`;
+    counts[key] = counts[key] ?? { gag: g, count: 0 };
     counts[key].count += 1;
   }
 
@@ -436,12 +434,7 @@ export function KillOptionsTable({
                         <div className="flex items-center justify-end">
                           <Buttoon
                             className="px-3 py-1 text-sm"
-                            onClick={() => {
-                              const resolved = opt.addedGags.map(
-                                (g) => findCanonicalGag(g) ?? g,
-                              );
-                              onApply(resolved);
-                            }}
+                            onClick={() => onApply(opt.addedGags)}
                           >
                             Use
                           </Buttoon>

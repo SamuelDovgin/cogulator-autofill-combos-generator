@@ -4,6 +4,7 @@ import { GAGS } from '../data/gagsInfo';
 import { GagTracks } from '../data/gagTracksInfo';
 import type { GagInfo, GagTrack as GagTrackName } from '../types';
 import type { FillToKillOption, ToonRestriction, SortMode, SortWeights, GagConserveWeights } from '../utils/fillToKillOptionsWorker';
+import type { OrganicTrack } from '../utils/toonTracks';
 
 // Vite worker import
 import FillToKillWorker from '../utils/fillToKillOptionsWorker?worker';
@@ -36,16 +37,19 @@ type ComputeArgs = {
   hideOverkillAdditions: boolean;
   conserveLevel7Gags: boolean;
   toonRestrictions?: ToonRestriction[];
+  organicTracks?: OrganicTrack[];
   maxResults?: number;
   maxGenerated?: number;
 };
 
 type WorkerResponse = {
   options: FillToKillOption[];
+  requestId: number;
 };
 
 export function useFillToKillOptions() {
   const workerRef = useRef<Worker | null>(null);
+  const latestRequestId = useRef(0);
 
   const [fillToKillLoading, setFillToKillLoading] = useState(false);
   const [fillToKillOptions, setFillToKillOptions] = useState<FillToKillOption[]>([]);
@@ -55,6 +59,7 @@ export function useFillToKillOptions() {
     workerRef.current = worker;
 
     const onMessage = (e: MessageEvent<WorkerResponse>) => {
+      if (e.data.requestId !== latestRequestId.current) return;
       setFillToKillOptions(e.data?.options ?? []);
       setFillToKillLoading(false);
     };
@@ -95,6 +100,7 @@ export function useFillToKillOptions() {
       hideOverkillAdditions,
       conserveLevel7Gags,
       toonRestrictions,
+      organicTracks,
       maxResults = 30,
       maxGenerated = 2000,
     }: ComputeArgs) => {
@@ -106,6 +112,7 @@ export function useFillToKillOptions() {
       const availableGags = Object.values(GAGS) as GagInfo[];
 
       worker.postMessage({
+        requestId: ++latestRequestId.current,
         targetLevel,
         isTargetAlreadyLured,
         targetHpOverride,
@@ -120,6 +127,7 @@ export function useFillToKillOptions() {
         sortWeights,
         gagConserveWeights,
         toonRestrictions,
+        organicTracks,
         conserveLevel7Gags,
         toggles: {
           excludeLow: excludeLevels.low1to3,

@@ -5,14 +5,10 @@ import {
   calculateTotalDamage,
 } from './calculatorUtils';
 import { DEFAULT_GAG_CONSERVE_WEIGHTS } from './defaultSettings';
+import { canAssignGagsToToons, eligibleToons, toonAllows } from './toonTracks';
+import type { OrganicTrack, ToonRestriction } from './toonTracks';
 
-export type ToonRestriction =
-  | 'none'
-  | 'toonup-less'
-  | 'trapless'
-  | 'lureless'
-  | 'soundless'
-  | 'dropless';
+export type { ToonRestriction } from './toonTracks';
 
 export type SortMode = 'accuracy' | 'conserve' | 'weighted';
 
@@ -28,6 +24,7 @@ export type SortWeights = {
 export type GagConserveWeights = Partial<Record<string, number>>;
 
 export interface FillToKillRequest {
+  requestId?: number;
   targetLevel: number;
   // If true, treat target as already lured at start of the round (no need to Lure/Trap).
   isTargetAlreadyLured?: boolean;
@@ -59,6 +56,8 @@ export interface FillToKillRequest {
 
   // Per-toon limitations (one missing track per toon)
   toonRestrictions?: ToonRestriction[];
+  // Omitted when organic roster matching is off.
+  organicTracks?: OrganicTrack[];
 
   // Some callers send a `toggles` object instead of top-level fields
   toggles?: any;
@@ -307,27 +306,6 @@ function normalizeToonRestrictions(req: FillToKillRequest): ToonRestriction[] {
   return out;
 }
 
-function toonAllows(track: GagTrack, restriction: ToonRestriction): boolean {
-  // Per user requirement: all toons always have Throw + Squirt.
-  if (track === 'Throw' || track === 'Squirt') return true;
-
-  switch (restriction) {
-    case 'toonup-less':
-      return track !== 'Toonup';
-    case 'trapless':
-      return track !== 'Trap';
-    case 'lureless':
-      return track !== 'Lure';
-    case 'soundless':
-      return track !== 'Sound';
-    case 'dropless':
-      return track !== 'Drop';
-    case 'none':
-    default:
-      return true;
-  }
-}
-
 function buildTrackCapacity(restrictions: ToonRestriction[], enabledTracks?: Record<GagTrack, boolean>) {
   const capacity: Record<GagTrack, number> = {
     Toonup: 0,
@@ -358,50 +336,15 @@ function buildTrackCapacity(restrictions: ToonRestriction[], enabledTracks?: Rec
   return capacity;
 }
 
-function canAssignGagsToToons(
-  allGags: GagInfo[],
-  restrictions: ToonRestriction[],
-): boolean {
-  if (allGags.length > restrictions.length) return false;
-
-  // Tiny problem size (<=4): exact backtracking with bitmask.
-  const tracks = allGags.map((g) => g.track as GagTrack);
-
-  // Heuristic: assign most constrained first to prune
-  const order = tracks
-    .map((tr, idx) => ({ tr, idx }))
-    .sort((a, b) => {
-      const aChoices = restrictions.filter((r) => toonAllows(a.tr, r)).length;
-      const bChoices = restrictions.filter((r) => toonAllows(b.tr, r)).length;
-      return aChoices - bChoices;
-    })
-    .map((x) => x.idx);
-
-  const ordered = order.map((idx) => tracks[idx]);
-
-  function dfsOrdered(i: number, usedMask: number): boolean {
-    if (i >= ordered.length) return true;
-    const tr = ordered[i];
-    for (let toon = 0; toon < restrictions.length; toon++) {
-      if (usedMask & (1 << toon)) continue;
-      if (!toonAllows(tr, restrictions[toon])) continue;
-      if (dfsOrdered(i + 1, usedMask | (1 << toon))) return true;
-    }
-    return false;
-  }
-
-  return dfsOrdered(0, 0);
-}
-
 function trackCountKey(gags: GagInfo[]) {
-  const counts: Partial<Record<GagTrack, number>> = {};
+  const counts: Record<string, number> = {};
   for (const g of gags) {
-    counts[g.track] = (counts[g.track] ?? 0) + 1;
+    const track = g.isOrganic ? `${g.track}:organic` : g.track;
+    counts[track] = (counts[track] ?? 0) + 1;
   }
-  const tracks: GagTrack[] = ['Lure', 'Trap', 'Sound', 'Throw', 'Squirt', 'Drop', 'Toonup'];
-  return tracks
-    .filter((t) => (counts[t] ?? 0) > 0)
-    .map((t) => `${t}:${counts[t]}`)
+  return Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([track, count]) => `${track}:${count}`)
     .join('|');
 }
 
@@ -472,21 +415,6 @@ function filterSupersetsWithNoDisplayedAccuracyGain(options: FillToKillOption[])
     const key = formatExactKey(opt.addedGags);
     byKey.set(key, accKey(opt));
   }
-  // We'll create subset keys using a stable per-gag key list, then convert to formatExactKey-like signature.
-  function gagKey(g: GagInfo): string {
-    return `${g.track}:${g.level}:${g.name}`;
-  }
-
-  function exactKeyFromGagKeys(keys: string[]): string {
-    // Convert list of gag keys (may include duplicates) to the same signature as formatExactKey
-    const counts: Record<string, number> = {};
-    for (const k of keys) counts[k] = (counts[k] ?? 0) + 1;
-    return Object.entries(counts)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([k, v]) => `${k}x${v}`)
-      .join('|');
-  }
-
   // For each option, see if any subset (including the empty subset) exists with
   // >= displayed accuracy.
   //
@@ -498,16 +426,13 @@ function filterSupersetsWithNoDisplayedAccuracyGain(options: FillToKillOption[])
     const optAcc = accKey(opt);
     if (opt.addedGags.length <= 0) return true;
 
-    const perGagKeys = opt.addedGags.map(gagKey);
     // Enumerate subsets via bitmask (<= 15 subsets)
-    const n = perGagKeys.length;
+    const n = opt.addedGags.length;
     const seen = new Set<string>();
     for (let mask = 0; mask < (1 << n); mask++) {
       if (mask === (1 << n) - 1) continue; // skip full set (itself)
-      const subset: string[] = [];
-      for (let i = 0; i < n; i++) if (mask & (1 << i)) subset.push(perGagKeys[i]);
-      subset.sort();
-      const exact = exactKeyFromGagKeys(subset);
+      const subset = opt.addedGags.filter((_, i) => mask & (1 << i));
+      const exact = formatExactKey(subset);
       if (seen.has(exact)) continue;
       seen.add(exact);
 
@@ -554,12 +479,12 @@ function computeCandidatePool(req: FillToKillRequest, trackCapacity: Record<GagT
 // Generate combinations WITH repetition (multiset) of size k
 function generateAndEvaluate(
   req: FillToKillRequest,
-  candidates: GagInfo[],
+  candidates: { gag: GagInfo; eligible: number }[],
   k: number,
   hp: number,
   out: FillToKillOption[],
   seenExactAdded: Set<string>,
-  restrictions: ToonRestriction[],
+  baseEligibility: number[],
   trackCapacity: Record<GagTrack, number>,
 ) {
   const base = req.currentGags;
@@ -577,7 +502,8 @@ function generateAndEvaluate(
     baseCounts[g.track] = (baseCounts[g.track] ?? 0) + 1;
   }
 
-  const chosenIdxs: number[] = [];
+  const added: GagInfo[] = [];
+  const eligibility = [...baseEligibility];
   const addedCounts: Partial<Record<GagTrack, number>> = {};
 
   const generationCap = normalizeGenerationCap(req);
@@ -597,12 +523,8 @@ function generateAndEvaluate(
     }
 
     if (depth === k) {
-      const added: GagInfo[] = chosenIdxs.map((i) => candidates[i]);
       const all = [...base, ...added];
       if (all.length > maxToons) return;
-
-      // Must be assignable to actual toon track availability
-      if (!canAssignGagsToToons(all, restrictions)) return;
 
       const total = calculateTotalDamage(all, { lured: initialLured }).totalDamage;
       if (total < hp) return;
@@ -613,7 +535,7 @@ function generateAndEvaluate(
       seenExactAdded.add(exactKey);
 
       out.push({
-        addedGags: added,
+        addedGags: [...added],
         totalDamage: total,
         overkill: total - hp,
         accuracy: calculateComboAccuracy(all, req.targetLevel, { initialLured, targetHpOverride: hpOverride }),
@@ -622,17 +544,19 @@ function generateAndEvaluate(
     }
 
     for (let i = startIdx; i < candidates.length; i++) {
-      const g = candidates[i];
+      const { gag: g, eligible } = candidates[i];
       if (wouldExceedCapacity(g.track)) continue;
 
-      chosenIdxs.push(i);
-      addedCounts[g.track] = (addedCounts[g.track] ?? 0) + 1;
-
-      recurse(i, depth + 1);
-
-      addedCounts[g.track] = (addedCounts[g.track] ?? 0) - 1;
-      if ((addedCounts[g.track] ?? 0) <= 0) delete addedCounts[g.track];
-      chosenIdxs.pop();
+      eligibility.push(eligible);
+      if ((req.organicTracks === undefined && depth + 1 < k) || canAssignGagsToToons(eligibility)) {
+        const previousCount = addedCounts[g.track] ?? 0;
+        added.push(g);
+        addedCounts[g.track] = previousCount + 1;
+        recurse(i, depth + 1);
+        addedCounts[g.track] = previousCount;
+        added.pop();
+      }
+      eligibility.pop();
     }
   }
 
@@ -645,11 +569,12 @@ function formatExactKey(gags: GagInfo[]) {
     (x, y) =>
       x.track.localeCompare(y.track) ||
       x.level - y.level ||
-      x.name.localeCompare(y.name),
+      x.name.localeCompare(y.name) ||
+      Number(!!x.isOrganic) - Number(!!y.isOrganic),
   );
   const counts: Record<string, number> = {};
   for (const g of sorted) {
-    const k = `${g.track}:${g.level}:${g.name}`;
+    const k = `${g.track}:${g.level}:${g.name}${g.isOrganic ? ':organic' : ''}`;
     counts[k] = (counts[k] || 0) + 1;
   }
   return Object.entries(counts)
@@ -671,6 +596,9 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
     req.preferAccuracy ?? (req as any).toggles?.preferAccuracy ?? true;
 
   const restrictions = normalizeToonRestrictions(req);
+  const organicTracks = req.organicTracks;
+  const baseEligibility = req.currentGags.map((gag) => eligibleToons(gag, restrictions, organicTracks));
+  if (!canAssignGagsToToons(baseEligibility)) return [];
   const sortMode = normalizeSortMode(req, preferAccuracy);
   const sortWeights = normalizeSortWeights(req);
 
@@ -678,14 +606,17 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
     (req as any).enabledTracks ?? toggles.enabledTracks ?? {};
 
   const trackCapacity = buildTrackCapacity(restrictions, enabledTracks);
-  const candidates = computeCandidatePool(req, trackCapacity);
+  const candidates = computeCandidatePool(req, trackCapacity)
+    .flatMap((gag) => organicTracks && !gag.isOrganic ? [gag, { ...gag, isOrganic: true }] : [gag])
+    .map((gag) => ({ gag, eligible: eligibleToons(gag, restrictions, organicTracks) }))
+    .filter(({ eligible }) => eligible !== 0);
 
   const allOptions: FillToKillOption[] = [];
   const seenExactAdded = new Set<string>();
 
   // Include "already kills" option first (no added gags), so the UI can show it.
   const currentTotal = calculateTotalDamage(req.currentGags, { lured: initialLured }).totalDamage;
-  if (currentTotal >= hp && canAssignGagsToToons(req.currentGags, restrictions)) {
+  if (currentTotal >= hp) {
     allOptions.push({
       addedGags: [],
       totalDamage: currentTotal,
@@ -703,7 +634,7 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
       hp,
       allOptions,
       seenExactAdded,
-      restrictions,
+      baseEligibility,
       trackCapacity,
     );
   }
@@ -745,5 +676,5 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
 self.addEventListener('message', (e: MessageEvent<FillToKillRequest>) => {
   const options = solve(e.data);
   // eslint-disable-next-line no-restricted-globals
-  self.postMessage({ options });
+  self.postMessage({ options, requestId: e.data.requestId });
 });
