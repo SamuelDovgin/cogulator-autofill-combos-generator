@@ -1217,7 +1217,6 @@ function ComboCalculator() {
                           excludeLevels={excludeLevels}
                           greyOutExcludedLevels={greyOutExcludedLevels}
                           highlightStrengths={paletteHighlightStrengths}
-                          showOrganicChoices={activeOrganicTracks?.includes(track.name)}
                           defaultOrganic={organicOnlyTracks?.includes(track.name)}
                           isTrackEnabled={enabledTracks[track.name as GagTrackName] !== false}
                           onToggleTrack={() => toggleTrack(track.name as GagTrackName)}

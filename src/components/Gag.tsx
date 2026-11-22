@@ -20,7 +20,6 @@ interface Props {
    */
   highlightStrength?: number;
   organicHighlightStrength?: number;
-  showOrganicChoice?: boolean;
   gag: GagInfo;
   onGagHover?: (isOrganic: boolean) => void;
   onGagClick?: (isOrganic: boolean) => void;
@@ -32,7 +31,6 @@ export default function Gag({
   disabledVariant,
   highlightStrength,
   organicHighlightStrength,
-  showOrganicChoice,
   onGagHover,
   onGagClick,
   ...props
@@ -123,8 +121,11 @@ export default function Gag({
         <div
           className={clsx(
             'absolute right-[-10px] top-[-13px] z-50 h-[25px] w-[25px] rounded-full bg-green-800 drop-shadow-[1px_1px_1px_black]',
-            !gag.isOrganic && !showOrganicChoice && organicHighlightStrength === undefined &&
-              'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100',
+            onGagHover && [
+              'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
+              'group-focus-visible:pointer-events-auto group-focus-visible:opacity-100',
+              'group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100',
+            ],
           )}
           style={organicHighlightStrength === undefined ? undefined : {
             boxShadow: `0 0 0 2px rgba(251, 146, 60, ${0.45 + 0.55 * organicHighlightStrength})`,

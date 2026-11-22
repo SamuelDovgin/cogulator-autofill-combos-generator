@@ -21,7 +21,6 @@ interface Props {
   greyOutExcludedLevels?: boolean;
   /** Optional per-gag highlight strength from 0..1 (1 = best/brightest). */
   highlightStrengths?: Partial<Record<string, number>>;
-  showOrganicChoices?: boolean;
   defaultOrganic?: boolean;
   isTrackEnabled?: boolean;
   onToggleTrack?: () => void;
@@ -52,7 +51,6 @@ export default function GagTrack({
   excludeLevels,
   greyOutExcludedLevels = true,
   highlightStrengths,
-  showOrganicChoices,
   defaultOrganic,
   isTrackEnabled = true,
   onToggleTrack,
@@ -131,7 +129,6 @@ export default function GagTrack({
                 organicHighlightStrength={
                   gagSelectionDisabled ? undefined : highlightStrengths?.[`${key}:organic`]
                 }
-                showOrganicChoice={showOrganicChoices}
                 key={gag.name}
                 onBlur={() => {
                   onGagHover(undefined);
