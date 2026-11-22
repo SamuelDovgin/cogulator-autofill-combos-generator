@@ -3,6 +3,7 @@ import type * as React from 'react';
 
 import leaf from '../../assets/organic_leaf.webp';
 import type { GagInfo } from '../types';
+import { describeOrganicGag } from '../utils/calculatorUtils';
 
 interface Props {
   disabled?: boolean;
@@ -18,6 +19,8 @@ interface Props {
    *  - 0.0 = muted dark orange (worst)
    */
   highlightStrength?: number;
+  organicHighlightStrength?: number;
+  showOrganicChoice?: boolean;
   gag: GagInfo;
   onGagHover?: (isOrganic: boolean) => void;
   onGagClick?: (isOrganic: boolean) => void;
@@ -28,6 +31,8 @@ export default function Gag({
   disabled,
   disabledVariant,
   highlightStrength,
+  organicHighlightStrength,
+  showOrganicChoice,
   onGagHover,
   onGagClick,
   ...props
@@ -44,6 +49,9 @@ export default function Gag({
   } = props;
   const resolvedDisabledVariant: 'full' | 'soft' = disabledVariant ?? 'full';
   const interactionBlocked = Boolean(disabled && resolvedDisabledVariant === 'full');
+  const defaultOrganic = Boolean(gag.isOrganic);
+  const showOrganicLeaf = gag.isOrganic || (gag.isOrganic === undefined && onGagHover);
+  const organicLabel = `Organic ${gag.name}`;
 
   const handleClick = (isOrganic: boolean) => {
     // "soft" disabled is visual-only: still clickable (user may be testing excluded levels).
@@ -89,48 +97,60 @@ export default function Gag({
         className,
       )}
       style={highlightStyle}
-      onMouseEnter={(e) => {
-        onMouseEnter?.(e);
-        if (interactionBlocked) return;
-        // Default hover preview is the non-organic version.
-        onGagHover?.(false);
-      }}
+      onMouseEnter={onMouseEnter}
       onPointerEnter={(e) => {
         onPointerEnter?.(e);
         if (interactionBlocked) return;
-        onGagHover?.(false);
+        onGagHover?.(defaultOrganic);
       }}
       onFocus={(e) => {
         onFocus?.(e);
         if (interactionBlocked) return;
-        onGagHover?.(false);
+        onGagHover?.(defaultOrganic);
       }}
-      onClick={() => handleClick(false)}
-      onKeyDown={() => {}}
+      onClick={() => handleClick(defaultOrganic)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        handleClick(defaultOrganic);
+      }}
       // biome-ignore lint/a11y/useSemanticElements: Button adds extra bad stuff
       role="button"
       tabIndex={0}
       {...rest}
     >
-      {gag.isOrganic !== false && (
+      {showOrganicLeaf && (
         <div
           className={clsx(
-            'absolute right-[-10px] top-[-13px] z-50 h-[25px] w-[25px] grayscale hover:grayscale-0 group-hover:block',
-            gag.isOrganic && 'grayscale-0',
-            !gag.isOrganic && 'hidden',
+            'absolute right-[-10px] top-[-13px] z-50 h-[25px] w-[25px] rounded-full bg-green-800 drop-shadow-[1px_1px_1px_black]',
+            !gag.isOrganic && !showOrganicChoice && organicHighlightStrength === undefined &&
+              'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100',
           )}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick(true);
+          style={organicHighlightStrength === undefined ? undefined : {
+            boxShadow: `0 0 0 2px rgba(251, 146, 60, ${0.45 + 0.55 * organicHighlightStrength})`,
           }}
-          onKeyDown={() => {}}
-          // biome-ignore lint/a11y/useSemanticElements: Don't wanna
-          role="button"
-          tabIndex={0}
+          title={describeOrganicGag(gag)}
         >
-          <div className="pointer-events-none absolute h-[25px] w-[25px] rounded-full bg-green-800 drop-shadow-[1px_1px_1px_black]" />
+          {!gag.isOrganic && (
+            <button
+              type="button"
+              className="absolute inset-[-4px] z-10 focus-visible:outline-2 focus-visible:outline-white"
+              aria-label={organicLabel}
+              disabled={interactionBlocked}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick(true);
+              }}
+              onPointerEnter={() => onGagHover?.(true)}
+              onPointerLeave={() => onGagHover?.(false)}
+              onFocus={(e) => {
+                e.stopPropagation();
+                onGagHover?.(true);
+              }}
+            />
+          )}
           <img
-            alt={gag.name}
+            alt=""
             className="pointer-events-none absolute right-[-4px] top-[-4px] z-50 aspect-square overflow-hidden drop-shadow-[1px_1px_1px_black]"
             height={30}
             src={leaf}
@@ -139,7 +159,7 @@ export default function Gag({
         </div>
       )}
       <img
-        alt={gag.name}
+        alt={gag.isOrganic ? organicLabel : gag.name}
         className="min-w-0 max-w-[65%] object-scale-down"
         draggable={false}
         src={gag.image}

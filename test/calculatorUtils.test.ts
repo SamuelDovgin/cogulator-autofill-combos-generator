@@ -5,7 +5,11 @@ import type { GagInfo } from '../src/types';
 import type { DamageResult } from '../src/utils/calculatorUtils';
 import {
   calculateCogHealth,
+  calculateComboAccuracy,
   calculateTotalDamage,
+  explainComboAccuracy,
+  getGagAccuracy,
+  getGagDmg,
 } from '../src/utils/calculatorUtils';
 
 describe('calculateCogHealth', () => {
@@ -45,6 +49,50 @@ function expectDamages(result: DamageResult, expectedResult: DamageResult) {
 function organic(gag: GagInfo): GagInfo {
   return { ...gag, isOrganic: true };
 }
+
+describe('organic bonuses in KO calculations', () => {
+  it.each([
+    [GAGS.Railroad, 220],
+    [GAGS.Foghorn, 55],
+    [GAGS.BirthdayCake, 110],
+    [GAGS.FireHose, 35],
+    [GAGS.GrandPiano, 196],
+    [GAGS.HighDive, 252],
+  ])('uses the rounded-up track bonus for $name', (gag, value) => {
+    expect(getGagDmg(organic(gag))).toBe(value);
+    expect(getGagAccuracy(organic(gag))).toBe(gag.accuracy);
+  });
+
+  it('applies organic Presentation accuracy before Cog defense and the final cap', () => {
+    const target = { targetHpOverride: 180 };
+    const regular = [GAGS.Presentation, GAGS.WeddingCake];
+    const boosted = [organic(GAGS.Presentation), GAGS.WeddingCake];
+
+    expect(calculateComboAccuracy(regular, 20, target)).toBe(0.85);
+    expect(calculateComboAccuracy(boosted, 20, target)).toBe(0.95);
+    const details = explainComboAccuracy(boosted, 20, target);
+    expect(details).toContain('Organic Presentation · 100% base accuracy (+10 percentage points)');
+    expect(details).toContain('One-turn KO probability: 95.00%');
+  });
+
+  it('counts organic damage toward a KO even when the first track misses', () => {
+    const target = { targetHpOverride: 110 };
+    const regular = [GAGS.Foghorn, GAGS.BirthdayCake];
+    const boosted = [GAGS.Foghorn, organic(GAGS.BirthdayCake)];
+
+    expect(calculateComboAccuracy(regular, 20, target)).toBeCloseTo(0.9 * 0.95);
+    expect(calculateComboAccuracy(boosted, 20, target)).toBeCloseTo(0.9 * 0.95 + 0.1 * 0.7);
+  });
+
+  it('uses boosted damage for triggered Trap and for the same-track group bonus', () => {
+    expect(calculateTotalDamage([GAGS.TenDollarBill, organic(GAGS.TNT)]).totalDamage).toBe(198);
+    expect(calculateTotalDamage([GAGS.FireHose, organic(GAGS.FireHose)])).toMatchObject({
+      baseDamage: 65,
+      groupBonus: 13,
+      totalDamage: 78,
+    });
+  });
+});
 
 describe('lure, tnt, sound x2', () => {
   const gags = [

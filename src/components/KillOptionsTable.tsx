@@ -124,85 +124,6 @@ export function KillOptionsTable({
     [currentGags, targetLevel, isTargetAlreadyLured, targetHpOverride],
   );
 
-  const rowScores = useMemo(() => {
-    if (options.length === 0) return [];
-
-    const weights = sortWeights ?? { accuracy: 1, levels: 1, tracks: 1 };
-    const wAcc = weights.accuracy ?? 0;
-    const wLevels = weights.conserve ?? 0;
-    const wTracks = weights.tracks ?? 0;
-
-    const getWeightForGag = (g: GagInfo) => {
-      const key = `${g.track}:${g.level}:${g.name}`;
-      const v = gagConserveWeights?.[key];
-      return typeof v === 'number' && Number.isFinite(v) ? v : 0.5;
-    };
-
-    const levelMetrics = options.map((opt) => {
-      let maxEff = 0;
-      let sumEff = 0;
-
-      for (const g of opt.addedGags) {
-        const eff = g.level * getWeightForGag(g);
-        maxEff = Math.max(maxEff, eff);
-        sumEff += eff;
-      }
-
-      const avgEff = opt.addedGags.length ? sumEff / opt.addedGags.length : 0;
-      const levelMetric = maxEff * 10 + avgEff;
-      const tracksExcludingLure = new Set<string>();
-      let hasLure = false;
-
-      for (const g of [...currentGags, ...opt.addedGags]) {
-        if (g.track === 'Lure') {
-          hasLure = true;
-          continue;
-        }
-        tracksExcludingLure.add(g.track);
-      }
-
-      const mult = lureTracksMultiplierEnabled ? Number(lureTracksMultiplier ?? 1) : 1;
-      const safeMult = Number.isFinite(mult) ? Math.max(0, Math.min(1, mult)) : 1;
-      const trackCount = tracksExcludingLure.size + (hasLure ? safeMult : 0);
-
-      return { maxEff, avgEff, levelMetric, trackCount };
-    });
-
-    const minLevel = Math.min(...levelMetrics.map((m) => m.levelMetric));
-    const maxLevel = Math.max(...levelMetrics.map((m) => m.levelMetric));
-    const minTracks = Math.min(...levelMetrics.map((m) => m.trackCount));
-    const maxTracks = Math.max(...levelMetrics.map((m) => m.trackCount));
-
-    const norm01 = (v: number, min: number, max: number) =>
-      max === min ? 1 : (v - min) / (max - min);
-
-    return options.map((opt, idx) => {
-      const m = levelMetrics[idx];
-      const accScore = opt.accuracy;
-      const conserveScore = 1 - norm01(m.levelMetric, minLevel, maxLevel);
-      const tracksScore = 1 - norm01(m.trackCount, minTracks, maxTracks);
-      const weightedScore = wAcc * accScore + wLevels * conserveScore + wTracks * tracksScore;
-
-      return {
-        weightedScore,
-        accScore,
-        conserveScore,
-        tracksScore,
-        levelMetric: m.levelMetric,
-        trackCount: m.trackCount,
-        maxEff: m.maxEff,
-        avgEff: m.avgEff,
-      };
-    });
-  }, [
-    options,
-    currentGags,
-    sortWeights,
-    gagConserveWeights,
-    lureTracksMultiplierEnabled,
-    lureTracksMultiplier,
-  ]);
-
   const rowTooltips = useMemo(() => {
     const combinedGagsByOption = options.map((opt) => [...currentGags, ...opt.addedGags]);
 
@@ -217,7 +138,7 @@ export function KillOptionsTable({
         targetHpOverride,
       });
 
-      const s = rowScores[idx];
+      const s = options[idx].weightedScore;
       if (!s) return accTip;
 
       const scoreTip =
@@ -226,13 +147,13 @@ export function KillOptionsTable({
               'Weighted score details:',
               '  Score = wAcc*Acc + wLevels*Conserve + wTracks*Tracks',
               `  wAcc=${wAcc}, wLevels=${wLevels}, wTracks=${wTracks}`,
-              `  Acc (0..1) = ${s.accScore.toFixed(4)}`,
-              `  Conserve (0..1) = ${s.conserveScore.toFixed(4)}  (higher = uses lower-value gags)`,
+              `  Acc (0..1) = ${s.accuracy.toFixed(4)}`,
+              `  Conserve (0..1) = ${s.conserve.toFixed(4)}  (higher = uses lower-value gags)`,
               '    levelMetric = maxEff*10 + avgEff',
               `    maxEff=${s.maxEff.toFixed(2)}, avgEff=${s.avgEff.toFixed(2)}, levelMetric=${s.levelMetric.toFixed(2)}`,
-              `  Tracks (0..1) = ${s.tracksScore.toFixed(4)}  (fewer unique tracks is better)`,
+              `  Tracks (0..1) = ${s.tracks.toFixed(4)}  (fewer unique tracks is better)`,
               `    trackCount=${s.trackCount}`,
-              `  WeightedScore = ${s.weightedScore.toFixed(4)}`,
+              `  WeightedScore = ${s.total.toFixed(4)}`,
             ].join('\n')
           : '';
 
@@ -244,7 +165,6 @@ export function KillOptionsTable({
     targetLevel,
     sortMode,
     sortWeights,
-    rowScores,
     isTargetAlreadyLured,
     targetHpOverride,
   ]);
@@ -384,6 +304,7 @@ export function KillOptionsTable({
               <tbody className="divide-y divide-slate-700/60">
                 {options.map((opt, idx) => {
                   const toonsUsed = currentGags.length + opt.addedGags.length;
+                  const score = opt.weightedScore;
                   const comboItems = buildComboItems(opt.addedGags);
 
                   return (
@@ -410,21 +331,21 @@ export function KillOptionsTable({
                         />
                       </td>
                       <td className="py-2 pr-3 tabular-nums text-slate-200">{opt.overkill}</td>
-                      {sortMode === 'weighted' && showScores && rowScores[idx] && (
+                      {sortMode === 'weighted' && showScores && score && (
                         <td className="py-2 pr-3 text-slate-200">
                           <div className="flex flex-col gap-0.5">
                             <span className="font-bold tabular-nums text-yellow-300">
-                              {rowScores[idx].weightedScore.toFixed(3)}
+                              {score.total.toFixed(3)}
                             </span>
                             <div className="flex gap-1.5 text-[10px] text-slate-400">
                               <span title="Accuracy component">
-                                A:{(rowScores[idx].accScore * 100).toFixed(0)}
+                                A:{(score.accuracy * 100).toFixed(0)}
                               </span>
                               <span title="Conserve component (higher = uses cheaper gags)">
-                                C:{(rowScores[idx].conserveScore * 100).toFixed(0)}
+                                C:{(score.conserve * 100).toFixed(0)}
                               </span>
                               <span title="Tracks component (higher = fewer tracks)">
-                                T:{(rowScores[idx].tracksScore * 100).toFixed(0)}
+                                T:{(score.tracks * 100).toFixed(0)}
                               </span>
                             </div>
                           </div>

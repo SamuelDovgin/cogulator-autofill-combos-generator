@@ -68,6 +68,7 @@ export interface FillToKillOption {
   totalDamage: number;
   overkill: number;
   accuracy: number;
+  weightedScore?: WeightedScore;
 }
 
 function isLevelExcluded(
@@ -137,8 +138,17 @@ function compareOptions(
 
 
 type WeightedMetrics = {
+  maxEff: number;
+  avgEff: number;
   levelMetric: number; // lower is better
   trackCount: number; // lower is better
+};
+
+type WeightedScore = WeightedMetrics & {
+  total: number;
+  accuracy: number;
+  conserve: number;
+  tracks: number;
 };
 
 const DEFAULT_SORT_WEIGHTS: SortWeights = { accuracy: 1, conserve: 1, tracks: 1 };
@@ -222,7 +232,7 @@ function computeWeightedMetrics(
   }
   const trackCount = tracksExcludingLure.size + (hasLure ? clamp01(Number(lureTrackMultiplier)) : 0);
 
-  return { levelMetric, trackCount };
+  return { maxEff, avgEff, levelMetric, trackCount };
 }
 
 function normalize01(value: number, min: number, max: number) {
@@ -244,25 +254,18 @@ function sortOptionsWeighted(
   const trackMin = Math.min(...metrics.map((m) => m.trackCount));
   const trackMax = Math.max(...metrics.map((m) => m.trackCount));
 
-  const scoreAt = (idx: number) => {
-    const opt = options[idx];
-    const m = metrics[idx];
-
-    const accScore = Math.max(0, Math.min(1, opt.accuracy));
-    const conserveScore = 1 - normalize01(m.levelMetric, levelMin, levelMax);
-    const trackScore = 1 - normalize01(m.trackCount, trackMin, trackMax);
-
-    return (
-      weights.accuracy * accScore +
-      weights.conserve * conserveScore +
-      weights.tracks * trackScore
-    );
-  };
+  const scores = metrics.map((metric, idx): WeightedScore => {
+    const accuracy = clamp01(options[idx].accuracy);
+    const conserve = 1 - normalize01(metric.levelMetric, levelMin, levelMax);
+    const tracks = 1 - normalize01(metric.trackCount, trackMin, trackMax);
+    const total = weights.accuracy * accuracy + weights.conserve * conserve + weights.tracks * tracks;
+    return { ...metric, total, accuracy, conserve, tracks };
+  });
 
   const idxs = options.map((_, i) => i);
   idxs.sort((ia, ib) => {
-    const sa = scoreAt(ia);
-    const sb = scoreAt(ib);
+    const sa = scores[ia].total;
+    const sb = scores[ib].total;
     if (sa !== sb) return sb - sa;
 
     // Tie-breakers: higher accuracy, then lower level metric, then fewer tracks
@@ -279,7 +282,7 @@ function sortOptionsWeighted(
     return a.totalDamage - b.totalDamage;
   });
 
-  return idxs.map((i) => options[i]);
+  return idxs.map((i) => ({ ...options[i], weightedScore: scores[i] }));
 }
 
 
@@ -587,7 +590,7 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
   const initialLured = !!(req.isTargetAlreadyLured ?? toggles.isTargetAlreadyLured);
   const hpOverrideRaw = (req.targetHpOverride ?? toggles.targetHpOverride ?? null);
   const hpOverride = (hpOverrideRaw ?? null) !== null && Number.isFinite(Number(hpOverrideRaw))
-    ? Math.max(1, Math.floor(Number(hpOverrideRaw)))
+    ? Math.max(0, Math.floor(Number(hpOverrideRaw)))
     : null;
   const hp = hpOverride ?? calculateCogHealth(req.targetLevel);
   const remaining = Math.max(0, req.maxToons - req.currentGags.length);

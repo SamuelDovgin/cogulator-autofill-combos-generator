@@ -15,7 +15,7 @@ import AccuracyPopover from './components/AccuracyPopover';
 import { Footer } from './components/Footer';
 
 import { GagTracks } from './data/gagTracksInfo';
-import { calculateComboAccuracy, calculateCogHealth, calculateMaxCogLevel, calculateTotalDamage, explainComboAccuracy } from './utils/calculatorUtils';
+import { calculateComboAccuracy, calculateCogHealth, calculateMaxCogLevel, calculateTotalDamage, explainComboAccuracy, getGagDmg } from './utils/calculatorUtils';
 import { getUniqueId } from './utils/uniqueUtils';
 
 import type { GagInfo, GagInstance, GagTrack as GagTrackName } from './types';
@@ -240,15 +240,24 @@ function ComboCalculator() {
     [maxToons, toonRestrictions],
   );
   const matchesRoster = useCallback(
-    (gags: GagInfo[]) => canAssignGagsToToons(
+    (gags: Pick<GagInfo, 'track' | 'isOrganic'>[]) => canAssignGagsToToons(
       gags.map((gag) => eligibleToons(gag, activeToonRestrictions, organicRoster)),
     ),
     [activeToonRestrictions, organicRoster],
+  );
+  const activeOrganicTracks = organicRoster?.slice(0, maxToons);
+  const organicOnlyTracks = activeOrganicTracks?.filter((track) =>
+    track &&
+    matchesRoster([...selectedGags, { track, isOrganic: true }]) &&
+    !matchesRoster([...selectedGags, { track }]),
   );
 
   const { totalDamage, baseDamage, groupBonus, lureBonus } = useMemo(() => {
     return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
   }, [calcSelectedGags, isTargetAlreadyLured]);
+  const pendingTrap = calcSelectedGags.some(({ track }) => track === 'Lure')
+    ? undefined
+    : calcSelectedGags.find(({ track }) => track === 'Trap');
 
   const selectionAccuracy = useMemo(
     () =>
@@ -276,7 +285,7 @@ function ComboCalculator() {
     parts.push('Base: sum of each track\'s damage after track interactions (Trap triggers on Lure hit; Drop deals 0 to lured).');
     parts.push('Group: for each non-Lure track where 2+ gags are used together, +ceil(trackDamage/5).');
     parts.push('Lure: if target becomes lured and a non-Sound damage track hits, +ceil(trackDamage/2), then lure ends.');
-    parts.push('Organic: each organic gag adds at least +1 damage (ceil(maxDmg * organicBonus)); included in Base.');
+    parts.push('Organic damage is included in Base before Group and Lure bonuses. Organic Lure raises base accuracy.');
     return parts.join('\n');
   }, [displaySelectedGags, baseDamage, groupBonus, lureBonus, totalDamage]);
 
@@ -577,14 +586,19 @@ function ComboCalculator() {
 
   const applyAddedGags = useCallback(
     (added: GagInfo[]) => {
-      const base = selectedGags.slice(0, maxToons);
-      if (organicEnabled && !matchesRoster([...base, ...added])) return;
+      if (calcSelectedGags.length + added.length > maxToons) return;
+      if (organicEnabled && !matchesRoster([...calcSelectedGags, ...added])) return;
+      const base = calcSelectedGags.map((gag) =>
+        gag.isPreview ? { ...gag, id: getUniqueId(), isPreview: false } : gag,
+      );
       const additions: GagInstance[] = added.map((g) => ({ ...g, id: getUniqueId() }));
-      setSelectedGags([...base, ...additions].slice(0, maxToons));
-      playClickSfx();
+      setSelectedGags([...base, ...additions]);
+      setTargetLevel(effectiveTargetLevel);
       setPreviewGag(null);
+      setPreviewLevel(null);
+      playClickSfx();
     },
-    [selectedGags, maxToons, organicEnabled, matchesRoster, playClickSfx],
+    [calcSelectedGags, effectiveTargetLevel, maxToons, organicEnabled, matchesRoster, playClickSfx],
   );
 
   const panelClassName =
@@ -736,30 +750,23 @@ function ComboCalculator() {
     const keyOf = (g: Pick<GagInfo, 'track' | 'level' | 'name'>) => `${g.track}:${g.level}:${g.name}`;
 
     const scored: Array<{ key: string; p: number }> = [];
+    const variants = organicEnabled ? [false, true] : [false];
 
     for (const t of GagTracks) {
       if (t.name === 'Toonup') continue;
       if (!enabledTracks[t.name as GagTrackName]) continue;
 
       for (const gag of t.gags) {
-        const next: GagInstance[] = [
-          ...calcSelectedGags,
-          {
-            ...gag,
-            id: 'HINT',
-            isOrganic: false,
-          },
-        ];
-        if (organicEnabled && !matchesRoster(next)) continue;
+        for (const isOrganic of variants) {
+          const next = [...calcSelectedGags, { ...gag, isOrganic }];
+          if (organicEnabled && !matchesRoster(next)) continue;
 
-        const dmg = calculateTotalDamage(next, { lured: isTargetAlreadyLured }).totalDamage;
+          const dmg = calculateTotalDamage(next, { lured: isTargetAlreadyLured }).totalDamage;
+          if (!alreadyKills && dmg < hp) continue;
 
-        // If already kills: highlight ALL gags (they all result in overkill).
-        // If doesn't kill: only highlight gags that make it reach kill threshold.
-        if (!alreadyKills && dmg < hp) continue;
-
-        const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride: effectiveTargetHpOverride });
-        scored.push({ key: keyOf(gag), p });
+          const p = calculateComboAccuracy(next, effectiveTargetLevel, { initialLured: isTargetAlreadyLured, targetHpOverride: effectiveTargetHpOverride });
+          scored.push({ key: `${keyOf(gag)}${isOrganic ? ':organic' : ''}`, p });
+        }
       }
     }
 
@@ -1068,7 +1075,7 @@ function ComboCalculator() {
                         onChange={(e) => setShowKillHints(e.target.checked)}
                       />
                       Highlight helpful gags (orange)
-                      <InfoTip text="When enabled, gags in the palette will turn orange if adding one copy makes your all-hit damage reach (or exceed) the selected Cog's HP. Brightness reflects the one-turn KO chance for (current selection + that gag)." />
+                      <InfoTip text="Orange marks a gag that reaches the Cog’s HP with your current selection. An orange outline on a leaf marks the organic version. Brighter orange means a higher one-turn KO chance." />
                     </label>
 
                     <label className="flex items-center gap-2">
@@ -1141,6 +1148,14 @@ function ComboCalculator() {
                     <span className="font-cog">- {groupBonus}</span> | Lure{' '}
                     <span className="font-cog">- {lureBonus}</span>
                   </div>
+                  <div className="min-h-5 text-xs leading-5 text-amber-200">
+                    {pendingTrap && (
+                      <>
+                        {pendingTrap.isOrganic ? 'Organic ' : ''}{pendingTrap.name} deals{' '}
+                        <span className="font-bold">{getGagDmg(pendingTrap)} damage</span> when Lure triggers it.
+                      </>
+                    )}
+                  </div>
                   <div>
                     <span className="font-bold text-white">Max Cog Level:</span>{' '}
                     <InfoTip text={maxCogExplanation} />
@@ -1198,6 +1213,8 @@ function ComboCalculator() {
                           excludeLevels={excludeLevels}
                           greyOutExcludedLevels={greyOutExcludedLevels}
                           highlightStrengths={paletteHighlightStrengths}
+                          showOrganicChoices={activeOrganicTracks?.includes(track.name)}
+                          defaultOrganic={organicOnlyTracks?.includes(track.name)}
                           isTrackEnabled={enabledTracks[track.name as GagTrackName] !== false}
                           onToggleTrack={() => toggleTrack(track.name as GagTrackName)}
                           onOnlyTrack={() => onlyTrack(track.name as GagTrackName)}
@@ -1214,7 +1231,7 @@ function ComboCalculator() {
                 <KillOptionsTable
                   targetLevel={effectiveTargetLevel}
                   isTargetAlreadyLured={isTargetAlreadyLured}
-                  targetHpOverride={targetHpOverride}
+                  targetHpOverride={effectiveTargetHpOverride}
                   currentGags={calcSelectedGags}
                   options={isFillLoading ? [] : fillOptions}
                   isLoading={isFillLoading}

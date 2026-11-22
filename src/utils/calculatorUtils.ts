@@ -47,9 +47,19 @@ export function getGagAccuracy({
   isOrganic,
 }: Pick<GagInfo, 'accuracy' | 'dmgType' | 'isOrganic'>): number {
   if (dmgType === 'Lure' && isOrganic) {
-    return Math.min(95, accuracy + 10);
+    return accuracy + 10;
   }
   return accuracy;
+}
+
+export function describeOrganicGag(gag: GagInfo): string {
+  const organic = { ...gag, isOrganic: true };
+  if (gag.dmgType === 'Lure') {
+    return `Organic ${gag.name} · ${getGagAccuracy(organic)}% base accuracy (+10 percentage points)`;
+  }
+  const value = getGagDmg(organic);
+  const bonus = value - getGagDmg({ ...gag, isOrganic: false });
+  return `Organic ${gag.name} · ${value} ${gag.dmgType === 'Heal' ? 'healing' : 'damage'} (+${bonus})`;
 }
 
 // Tracks that contribute a +25% stun bonus per successful gag hit (capped at +75%)
@@ -268,7 +278,7 @@ export function explainComboAccuracy(
   const initialLured = !!options?.initialLured;
   const hp =
     (options?.targetHpOverride ?? null) !== null && Number.isFinite(Number(options?.targetHpOverride))
-      ? Math.max(1, Math.floor(Number(options?.targetHpOverride)))
+      ? Math.max(0, Math.floor(Number(options?.targetHpOverride)))
       : calculateCogHealth(level);
   const defense = getTargetDefense(level);
 
@@ -294,6 +304,10 @@ export function explainComboAccuracy(
   lines.push('- Same track + same target: all gags in that track either hit or miss together.');
   lines.push('- Stun: each hit from Throw/Squirt/Sound adds +25 accuracy (capped at +75). Trap activation adds +50.');
   lines.push('- Lured target: Throw/Squirt/Sound auto-hit; Drop auto-miss; first successful damage ends lure.');
+  lines.push('- Modeled attack rolls cap at 95%. The live game can exceed 95% using unpublished thresholds.');
+  for (const gag of gags.filter(({ isOrganic }) => isOrganic)) {
+    lines.push(`- ${describeOrganicGag(gag)}`);
+  }
   if (trapGags.length) lines.push('- Trap triggers only if Lure hits (Trap itself is not an accuracy roll).');
   if ((options?.targetHpOverride ?? null) !== null) lines.push('- KO check uses Remaining HP override.');
 

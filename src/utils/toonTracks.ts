@@ -17,7 +17,7 @@ export function toonAllows(track: GagTrack, restriction: ToonRestriction): boole
 }
 
 export function eligibleToons(
-  gag: GagInfo,
+  gag: Pick<GagInfo, 'track' | 'isOrganic'>,
   restrictions: ToonRestriction[],
   organicTracks?: OrganicTrack[],
 ): number {

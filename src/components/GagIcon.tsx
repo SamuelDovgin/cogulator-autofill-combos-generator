@@ -1,6 +1,7 @@
 import type { GagInfo } from '../types';
 import { GAGS } from '../data/gagsInfo';
 import organicLeaf from '../../assets/organic_leaf.webp';
+import { describeOrganicGag } from '../utils/calculatorUtils';
 
 export function GagIcon({ gag, className = '' }: { gag: GagInfo; className?: string }) {
     // Try to find the canonical gag entry to get the original image path
@@ -12,7 +13,7 @@ export function GagIcon({ gag, className = '' }: { gag: GagInfo; className?: str
     const canonical = key ? (GAGS as Record<string, GagInfo>)[key] : gag;
 
     return (
-        <div className={`relative inline-flex items-center ${className}`} title={gag.isOrganic ? `Organic ${canonical.name}` : undefined}>
+        <div className={`relative inline-flex items-center ${className}`} title={gag.isOrganic ? describeOrganicGag(gag) : undefined}>
             <img
                 alt={gag.isOrganic ? `Organic ${canonical.name}` : canonical.name}
                 draggable={false}

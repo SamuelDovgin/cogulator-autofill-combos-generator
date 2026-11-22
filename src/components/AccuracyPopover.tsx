@@ -85,7 +85,7 @@ function parseExplanation(text: string): ParsedExplanation {
       inRules = true;
     } else if (inRules && trimmed.startsWith('-')) {
       result.rules.push(trimmed.substring(1).trim());
-    } else if (trimmed.match(/^(Lure|Sound|Throw|Squirt|Drop) hit%/)) {
+    } else if (/^(Lure|Sound|Throw|Squirt|Drop)( hit%|: target is lured)/.test(trimmed)) {
       if (currentCalc) {
         result.calculations.push(currentCalc as CalculationStep);
       }
