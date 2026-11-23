@@ -94,6 +94,18 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
     expect(solve({ ...soundRequest, targetHpOverride: 259 })).toEqual([]);
     expect(solve({ ...soundRequest, organicTracks: ['Sound', 'Sound', 'Sound', 'Sound'] }))
       .toMatchObject([{ addedGags: [organicFoghorn, organicFoghorn, organicFoghorn], totalDamage: 264 }]);
+    expect(solve({
+      ...soundRequest,
+      currentGags: [GAGS.Foghorn],
+      organicTracks: ['Sound', 'Sound', 'Sound', 'Sound'],
+      targetHpOverride: 100,
+    })).toEqual([]);
+    expect(solve({
+      ...soundRequest,
+      currentGags: [{ ...GAGS.Safe, isOrganic: true }],
+      organicTracks: ['', '', '', ''],
+      targetHpOverride: 100,
+    })).toEqual([]);
     expect(solve({ ...soundRequest, organicTracks: undefined, currentGags: [], targetHpOverride: 50 }))
       .toMatchObject([{ addedGags: [GAGS.Foghorn], totalDamage: 50 }]);
 

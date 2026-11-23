@@ -245,13 +245,6 @@ function ComboCalculator() {
     ),
     [activeToonRestrictions, organicRoster],
   );
-  const activeOrganicTracks = organicRoster?.slice(0, maxToons);
-  const organicOnlyTracks = activeOrganicTracks?.filter((track) =>
-    track &&
-    matchesRoster([...selectedGags, { track, isOrganic: true }]) &&
-    !matchesRoster([...selectedGags, { track }]),
-  );
-
   const { totalDamage, baseDamage, groupBonus, lureBonus } = useMemo(() => {
     return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
   }, [calcSelectedGags, isTargetAlreadyLured]);
@@ -1135,12 +1128,6 @@ function ComboCalculator() {
                   onSelectionChanged={handleSelectionChanged}
                   totalDamage={totalDamage}
                 />
-                {organicEnabled && !matchesRoster(selectedGags) && (
-                  <p role="status" className="mt-2 text-sm text-amber-200">
-                    Your selected gags don’t fit the Toon roster. Adjust the gags or the tracks to see kill combos.
-                  </p>
-                )}
-
                 <div className="mt-3 space-y-1 text-sm text-slate-200">
                   <div>
                     <span className="font-bold text-white">Total Damage:</span>{' '}
@@ -1217,7 +1204,6 @@ function ComboCalculator() {
                           excludeLevels={excludeLevels}
                           greyOutExcludedLevels={greyOutExcludedLevels}
                           highlightStrengths={paletteHighlightStrengths}
-                          defaultOrganic={organicOnlyTracks?.includes(track.name)}
                           isTrackEnabled={enabledTracks[track.name as GagTrackName] !== false}
                           onToggleTrack={() => toggleTrack(track.name as GagTrackName)}
                           onOnlyTrack={() => onlyTrack(track.name as GagTrackName)}
