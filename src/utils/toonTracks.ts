@@ -30,7 +30,42 @@ export function eligibleToons(
   }, 0);
 }
 
-export function canAssignGagsToToons(eligibleMasks: number[]): boolean {
+export function getSelectedToonMasks(
+  gags: Pick<GagInfo, 'track' | 'isOrganic'>[],
+  restrictions: ToonRestriction[],
+  organicTracks?: OrganicTrack[],
+): number[] {
+  const eligibility = gags.map((gag) => ({
+    allowed: eligibleToons(gag, restrictions),
+    preferred: eligibleToons(gag, restrictions, organicTracks),
+  }));
+  const masks = new Set<number>();
+  let fewestOverrides = Infinity;
+
+  // Honor the selected gag's organic status even when no exact roster assignment exists.
+  function assign(index: number, used: number, overrides: number) {
+    if (overrides > fewestOverrides) return;
+    if (index === eligibility.length) {
+      if (overrides < fewestOverrides) masks.clear();
+      fewestOverrides = overrides;
+      masks.add(used);
+      return;
+    }
+
+    const { allowed, preferred } = eligibility[index];
+    let choices = allowed & ~used;
+    while (choices) {
+      const toon = choices & -choices;
+      assign(index + 1, used | toon, overrides + Number(!(preferred & toon)));
+      choices ^= toon;
+    }
+  }
+
+  assign(0, 0, 0);
+  return [...masks];
+}
+
+export function canAssignGagsToToons(eligibleMasks: number[], occupied: number): boolean {
   // Each gag needs a distinct Toon from its eligibility mask.
   function assign(index: number, used: number): boolean {
     if (index === eligibleMasks.length) return true;
@@ -43,5 +78,5 @@ export function canAssignGagsToToons(eligibleMasks: number[]): boolean {
     return false;
   }
 
-  return assign(0, 0);
+  return assign(0, occupied);
 }

@@ -5,7 +5,7 @@ import {
   calculateTotalDamage,
 } from './calculatorUtils';
 import { DEFAULT_GAG_CONSERVE_WEIGHTS } from './defaultSettings';
-import { canAssignGagsToToons, eligibleToons, toonAllows } from './toonTracks';
+import { canAssignGagsToToons, eligibleToons, getSelectedToonMasks, toonAllows } from './toonTracks';
 import type { OrganicTrack, ToonRestriction } from './toonTracks';
 
 export type { ToonRestriction } from './toonTracks';
@@ -506,7 +506,7 @@ function generateAndEvaluate(
   hp: number,
   out: FillToKillOption[],
   seenExactAdded: Set<string>,
-  baseEligibility: number[],
+  selectedToonMasks: number[],
   trackCapacity: Record<GagTrack, number>,
 ) {
   const base = req.currentGags;
@@ -525,7 +525,7 @@ function generateAndEvaluate(
   }
 
   const added: GagInfo[] = [];
-  const eligibility = [...baseEligibility];
+  const eligibility: number[] = [];
   const addedCounts: Partial<Record<GagTrack, number>> = {};
 
   const generationCap = normalizeGenerationCap(req);
@@ -570,7 +570,8 @@ function generateAndEvaluate(
       if (wouldExceedCapacity(g.track)) continue;
 
       eligibility.push(eligible);
-      if ((req.organicTracks === undefined && depth + 1 < k) || canAssignGagsToToons(eligibility)) {
+      if ((req.organicTracks === undefined && depth + 1 < k) ||
+          selectedToonMasks.some((occupied) => canAssignGagsToToons(eligibility, occupied))) {
         const previousCount = addedCounts[g.track] ?? 0;
         added.push(g);
         addedCounts[g.track] = previousCount + 1;
@@ -619,8 +620,8 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
 
   const restrictions = normalizeToonRestrictions(req);
   const organicTracks = req.organicTracks;
-  const baseEligibility = req.currentGags.map((gag) => eligibleToons(gag, restrictions, organicTracks));
-  if (!canAssignGagsToToons(baseEligibility)) return [];
+  const selectedToonMasks = getSelectedToonMasks(req.currentGags, restrictions, organicTracks);
+  if (selectedToonMasks.length === 0) return [];
   const sortMode = normalizeSortMode(req, preferAccuracy);
   const sortWeights = normalizeSortWeights(req);
 
@@ -656,7 +657,7 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
       hp,
       allOptions,
       seenExactAdded,
-      baseEligibility,
+      selectedToonMasks,
       trackCapacity,
     );
   }

@@ -23,7 +23,7 @@ import type { ToonRestriction, SortMode, SortWeights, GagConserveWeights } from 
 import { SfxContext } from './context/sfxContext';
 import { defaultEnabledTracks, useFillToKillOptions } from './hooks/useFillToKillOptions';
 import { findCanonicalGag } from './utils/gagLookup';
-import { canAssignGagsToToons, eligibleToons, toonAllows } from './utils/toonTracks';
+import { canAssignGagsToToons, eligibleToons, getSelectedToonMasks, toonAllows } from './utils/toonTracks';
 import type { OrganicTrack } from './utils/toonTracks';
 import { DEFAULT_GAG_CONSERVE_WEIGHTS, DEFAULT_MAX_GENERATED, DEFAULT_SORT_MODE, DEFAULT_SORT_WEIGHTS, DEFAULT_TARGET_LEVEL } from './utils/defaultSettings';
 
@@ -239,11 +239,16 @@ function ComboCalculator() {
     () => Array.from({ length: maxToons }, (_, i) => toonRestrictions[i] ?? 'none'),
     [maxToons, toonRestrictions],
   );
-  const matchesRoster = useCallback(
-    (gags: Pick<GagInfo, 'track' | 'isOrganic'>[]) => canAssignGagsToToons(
-      gags.map((gag) => eligibleToons(gag, activeToonRestrictions, organicRoster)),
-    ),
-    [activeToonRestrictions, organicRoster],
+  const selectedToonMasks = useMemo(
+    () => getSelectedToonMasks(calcSelectedGags, activeToonRestrictions, organicRoster),
+    [calcSelectedGags, activeToonRestrictions, organicRoster],
+  );
+  const canAddToRoster = useCallback(
+    (added: GagInfo[]) => {
+      const eligibility = added.map((gag) => eligibleToons(gag, activeToonRestrictions, organicRoster));
+      return selectedToonMasks.some((occupied) => canAssignGagsToToons(eligibility, occupied));
+    },
+    [activeToonRestrictions, organicRoster, selectedToonMasks],
   );
   const { totalDamage, baseDamage, groupBonus, lureBonus } = useMemo(() => {
     return calculateTotalDamage(calcSelectedGags, { lured: isTargetAlreadyLured });
@@ -580,7 +585,7 @@ function ComboCalculator() {
   const applyAddedGags = useCallback(
     (added: GagInfo[]) => {
       if (calcSelectedGags.length + added.length > maxToons) return;
-      if (organicEnabled && !matchesRoster([...calcSelectedGags, ...added])) return;
+      if (organicEnabled && !canAddToRoster(added)) return;
       const base = calcSelectedGags.map((gag) =>
         gag.isPreview ? { ...gag, id: getUniqueId(), isPreview: false } : gag,
       );
@@ -591,7 +596,7 @@ function ComboCalculator() {
       setPreviewLevel(null);
       playClickSfx();
     },
-    [calcSelectedGags, effectiveTargetLevel, maxToons, organicEnabled, matchesRoster, playClickSfx],
+    [calcSelectedGags, effectiveTargetLevel, maxToons, organicEnabled, canAddToRoster, playClickSfx],
   );
 
   const panelClassName =
@@ -755,8 +760,9 @@ function ComboCalculator() {
 
       for (const gag of t.gags) {
         for (const isOrganic of variants) {
-          const next = [...calcSelectedGags, { ...gag, isOrganic }];
-          if (organicEnabled && !matchesRoster(next)) continue;
+          const candidate = { ...gag, isOrganic };
+          if (organicEnabled && !canAddToRoster([candidate])) continue;
+          const next = [...calcSelectedGags, candidate];
 
           const dmg = calculateTotalDamage(next, { lured: isTargetAlreadyLured }).totalDamage;
           if (!alreadyKills && dmg < hp) continue;
@@ -779,7 +785,7 @@ function ComboCalculator() {
       out[s.key] = Math.max(0, Math.min(1, t));
     }
     return out;
-  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, effectiveTargetHpOverride, organicEnabled, matchesRoster]);
+  }, [showKillHints, effectiveTargetLevel, calcSelectedGags, maxToons, enabledTracks, isTargetAlreadyLured, effectiveTargetHpOverride, organicEnabled, canAddToRoster]);
 
 
 

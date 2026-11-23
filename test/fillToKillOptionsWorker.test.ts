@@ -99,13 +99,32 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
       currentGags: [GAGS.Foghorn],
       organicTracks: ['Sound', 'Sound', 'Sound', 'Sound'],
       targetHpOverride: 100,
-    })).toEqual([]);
-    expect(solve({
-      ...soundRequest,
+    })).toMatchObject([{ addedGags: [organicFoghorn] }]);
+
+    const safeRequest = {
+      targetLevel: 9,
       currentGags: [{ ...GAGS.Safe, isOrganic: true }],
+      availableGags: [GAGS.Safe, GAGS.FireHose, GAGS.ElephantTrunk, GAGS.Foghorn],
+      maxToons: 4,
       organicTracks: ['', '', '', ''],
+      excludeLevels: { low1to3: true, level7: true, level6ByTrack: { Sound: true } },
+    } satisfies FillToKillRequest;
+    expect(solve(safeRequest)).toContainEqual(expect.objectContaining({
+      addedGags: [GAGS.FireHose],
+      totalDamage: 111,
+    }));
+    const mixedOrganicOptions = solve({
+      ...safeRequest,
+      organicTracks: ['Sound', '', '', ''],
       targetHpOverride: 100,
-    })).toEqual([]);
+      maxResults: 50,
+    });
+    expect(mixedOrganicOptions).toContainEqual(expect.objectContaining({
+      addedGags: [{ ...GAGS.ElephantTrunk, isOrganic: true }],
+    }));
+    expect(mixedOrganicOptions?.flatMap(({ addedGags }) => addedGags)).not.toContainEqual(
+      expect.objectContaining({ track: 'Drop', isOrganic: true }),
+    );
     expect(solve({ ...soundRequest, organicTracks: undefined, currentGags: [], targetHpOverride: 50 }))
       .toMatchObject([{ addedGags: [GAGS.Foghorn], totalDamage: 50 }]);
 
@@ -118,7 +137,9 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
     } satisfies FillToKillRequest;
     expect(solve(dropRequest)).toMatchObject([{ addedGags: [GAGS.GrandPiano] }]);
     expect(solve({ ...dropRequest, toonRestrictions: ['none', 'dropless'] })).toEqual([]);
-    expect(solve({ ...dropRequest, toonRestrictions: ['soundless', 'none'] })).toEqual([]);
+    expect(solve({ ...dropRequest, toonRestrictions: ['soundless', 'none'] }))
+      .toMatchObject([{ addedGags: [GAGS.GrandPiano] }]);
+    expect(solve({ ...dropRequest, toonRestrictions: ['soundless', 'soundless'] })).toEqual([]);
   } finally {
     vi.unstubAllGlobals();
   }
