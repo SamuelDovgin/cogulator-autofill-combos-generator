@@ -1222,7 +1222,8 @@ function ComboCalculator() {
               </div>
             </div>
 
-            <div className="relative z-20 h-[clamp(30rem,75vh,46rem)] min-w-0">
+            {/* Use the gag column's height on desktop so the results can scroll independently. */}
+            <div className="relative z-20 min-w-0 max-[900px]:h-[clamp(30rem,75vh,46rem)] min-[900px]:self-stretch min-[900px]:[contain:size]">
               {effectiveTargetLevel !== null ? (
                 <KillOptionsTable
                   targetLevel={effectiveTargetLevel}

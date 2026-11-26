@@ -1,4 +1,4 @@
-import { useId, useRef } from 'react';
+import { type ReactNode, useId, useRef } from 'react';
 import { GuideDialog } from './GuideDialog';
 
 interface Supervisor {
@@ -113,14 +113,29 @@ const facilities = [
 ];
 
 const formatPoints = new Intl.NumberFormat('en-US').format;
+const fieldOfficeMerits = [
+  '1,000–1,500',
+  '1,500–2,000',
+  '1,650–2,400',
+  '≈2,700',
+];
 
-function SupervisorTips({ supervisor }: { supervisor: Supervisor }) {
+function GuidePopover({
+  label,
+  accessibleLabel,
+  children,
+}: {
+  label: string;
+  accessibleLabel?: string;
+  children: ReactNode;
+}) {
   const id = useId();
   const panel = useRef<HTMLDivElement>(null);
   const preview = useRef(false);
 
   return (
     <div
+      className="shrink-0"
       onPointerLeave={() => {
         if (preview.current) panel.current?.hidePopover();
       }}
@@ -128,7 +143,7 @@ function SupervisorTips({ supervisor }: { supervisor: Supervisor }) {
       <button
         type="button"
         popoverTarget={id}
-        aria-label={`Boss tips for the ${supervisor.name}`}
+        aria-label={accessibleLabel}
         onPointerEnter={({ pointerType, currentTarget }) => {
           if (
             pointerType !== 'mouse' ||
@@ -145,7 +160,7 @@ function SupervisorTips({ supervisor }: { supervisor: Supervisor }) {
         }}
         className="min-h-7 rounded-md border border-amber-400/35 bg-amber-400/10 px-2 text-xs font-semibold whitespace-nowrap text-amber-100 hover:bg-amber-400/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
       >
-        Boss tips
+        {label}
       </button>
       <div
         ref={panel}
@@ -156,24 +171,78 @@ function SupervisorTips({ supervisor }: { supervisor: Supervisor }) {
         }}
         className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(18rem,calc(100vw-5rem))] justify-self-end overflow-y-auto rounded-xl border border-amber-400/35 bg-slate-900 p-3 text-xs leading-relaxed text-slate-200 shadow-2xl [position-area:block-end_span-inline-start] [position-try-fallbacks:flip-block] supports-[position-area:block-end]:inset-auto supports-[position-area:block-end]:m-0"
       >
-        <h4 className="text-sm font-bold text-amber-100">{supervisor.name}</h4>
-        <ul className="my-2 list-disc space-y-2 pl-4 marker:text-amber-300">
-          {supervisor.tips.map(({ action, detail }) => (
-            <li key={action}>
-              <strong className="text-white">{action}</strong> {detail}
-            </li>
-          ))}
-        </ul>
-        <a
-          href={supervisor.source}
-          target="_blank"
-          rel="noreferrer"
-          className="text-cyan-200 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-cyan-300"
-        >
-          Fight mechanics
-        </a>
+        {children}
       </div>
     </div>
+  );
+}
+
+function SupervisorTips({ supervisor }: { supervisor: Supervisor }) {
+  return (
+    <GuidePopover
+      label="Boss tips"
+      accessibleLabel={`Boss tips for the ${supervisor.name}`}
+    >
+      <h4 className="text-sm font-bold text-amber-100">{supervisor.name}</h4>
+      <ul className="my-2 list-disc space-y-2 pl-4 marker:text-amber-300">
+        {supervisor.tips.map(({ action, detail }) => (
+          <li key={action}>
+            <strong className="text-white">{action}</strong> {detail}
+          </li>
+        ))}
+      </ul>
+      <a
+        href={supervisor.source}
+        target="_blank"
+        rel="noreferrer"
+        className="text-cyan-200 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-cyan-300"
+      >
+        Fight mechanics
+      </a>
+    </GuidePopover>
+  );
+}
+
+function FieldOfficeMerits() {
+  return (
+    <GuidePopover label="Field Office Merits">
+      <h3 className="text-sm font-bold text-amber-100">
+        Sellbot Field Offices
+      </h3>
+      <table className="my-2 w-full tabular-nums">
+        <thead className="text-slate-300">
+          <tr>
+            <th scope="col" className="pb-1 text-left font-medium">
+              Stars
+            </th>
+            <th scope="col" className="pb-1 text-right font-medium">
+              Est. Merits per run
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {fieldOfficeMerits.map((payout, index) => (
+            <tr key={payout} className="border-t border-slate-700">
+              <th scope="row" className="py-1 text-left font-normal">
+                {index + 1}★
+              </th>
+              <td className="py-1 text-right font-semibold text-amber-200">
+                {payout}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mb-2">Totals vary with the Cogs defeated.</p>
+      <a
+        href="https://www.reddit.com/r/toontownrewritten/comments/1n2mods/comment/nbb12o5/"
+        target="_blank"
+        rel="noreferrer"
+        className="text-cyan-200 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-cyan-300"
+      >
+        Player-reported payouts
+      </a>
+    </GuidePopover>
   );
 }
 
@@ -252,10 +321,13 @@ export function FacilityPromotionGuide() {
         ))}
       </div>
 
-      <p className="mt-4 text-xs leading-relaxed text-slate-300">
-        Short factory routes take the Gear Room and skip the west-side battles.
-        Long routes clear every battle.
-      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:flex-nowrap">
+        <p className="mr-auto text-xs leading-relaxed text-slate-300">
+          Short factory routes take the Gear Room and skip the west-side
+          battles. Long routes clear every battle.
+        </p>
+        <FieldOfficeMerits />
+      </div>
       <p className="mt-2 text-xs leading-relaxed text-slate-300">
         <strong className="text-white">First run?</strong> Tell the group before
         the boss so someone can call the opening gags.
