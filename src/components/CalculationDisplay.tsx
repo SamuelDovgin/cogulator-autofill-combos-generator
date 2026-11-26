@@ -179,12 +179,12 @@ export default function CalculationDisplay({
 
   return (
     <div className="bg-toon-paper m-4 mb-0 flex lg:h-16 h-12 flex-row items-center rounded-xl bg-white p-2 shadow-inner">
-      <div className="flex flex-1 select-none flex-row items-center justify-start gap-1 overflow-x-auto whitespace-nowrap flex-nowrap p-4 md:gap-2">
+      <div className="flex min-w-0 flex-1 select-none flex-row items-center justify-start gap-1 overflow-x-auto whitespace-nowrap flex-nowrap p-4 md:gap-2">
         {renderGags()}
       </div>
 
       {selectedGags.length > 0 && (
-        <div className="flex flex-row items-center justify-end gap-2">
+        <div className="flex shrink-0 flex-row items-center justify-end gap-2">
           <div className="text-right text-2xl text-yellow-800/40 sm:text-4xl">
             = {totalDamage}
           </div>
@@ -192,7 +192,7 @@ export default function CalculationDisplay({
       )}
 
       <button
-        className="cursor-pointer"
+        className="shrink-0 cursor-pointer"
         type="button"
         onClick={() => {
           onSelectionChanged([]);

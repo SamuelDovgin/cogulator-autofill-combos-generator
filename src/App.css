@@ -1,5 +1,6 @@
 .kill-combo-results {
   color-scheme: dark;
   scrollbar-color: var(--color-slate-500) transparent;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
 }

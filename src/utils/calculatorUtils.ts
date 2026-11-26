@@ -1,7 +1,7 @@
 import { range } from 'lodash-es';
 
-import { GagTracks } from '../data/gagTracksInfo';
-import type { CogStatus, GagInfo, GagTrackInfo, GagTrack } from '../types';
+import { gagTrackMetadata, type GagTrackMetadata } from '../data/gagTrackMetadata';
+import type { CogStatus, GagInfo, GagTrack } from '../types';
 
 export function calculateMaxCogLevel(
   gags: GagInfo[],
@@ -83,7 +83,7 @@ const TARGET_DEFENSE: Record<number, number> = {
 const DEFAULT_TARGET_DEFENSE = -65;
 
 const DAMAGE_TRACKS: GagTrack[] = ['Sound', 'Throw', 'Squirt', 'Drop'];
-const TRACK_ORDER = GagTracks.map((track) => track.name as GagTrack);
+const TRACK_ORDER = gagTrackMetadata.map((track) => track.name);
 
 export function getTargetDefense(level: number): number {
   if (level <= 0) return 0;
@@ -505,7 +505,7 @@ export interface DamageResult {
 }
 
 function getTrackGagDamage(
-  track: GagTrackInfo,
+  track: GagTrackMetadata,
   gag: GagInfo,
   cogStatus: CogStatus,
 ): [number, CogStatus] {
@@ -569,7 +569,7 @@ export function calculateTotalDamage(
     const trackGags = gags.filter((gag) => gag.track === gagTrack);
 
     // Get the relevant track info
-    const gagTrackInfo = GagTracks.find((track) => track.name === gagTrack);
+    const gagTrackInfo = gagTrackMetadata.find((track) => track.name === gagTrack);
     if (!gagTrackInfo) throw new Error(`Gag track ${gagTrack} not found`);
 
     let trackBaseDamage = 0;

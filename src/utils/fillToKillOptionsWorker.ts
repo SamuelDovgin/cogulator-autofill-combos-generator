@@ -92,6 +92,10 @@ function maxGagLevel(gags: GagInfo[]) {
   return gags.reduce((max, g) => Math.max(max, g.level), 0);
 }
 
+function isOneGagLevel7Finisher(option: FillToKillOption) {
+  return option.addedGags.length === 1 && option.addedGags[0].level === 7;
+}
+
 function totalGagLevels(gags: GagInfo[]) {
   return gags.reduce((sum, g) => sum + g.level, 0);
 }
@@ -411,7 +415,9 @@ function filterEquivalentOverkill(
   const map = new Map<string, FillToKillOption>();
   for (const opt of options) {
     const accKey = Math.round(opt.accuracy * 1000); // 0.1% bins in probability space
-    const key = `${opt.addedGags.length}|${trackCountKey(opt.addedGags)}|${accKey}`;
+    // Keep one-gag level 7 alternatives even when a cheaper gag has the same KO chance.
+    const finisherKey = isOneGagLevel7Finisher(opt) ? formatExactKey(opt.addedGags) : '';
+    const key = `${opt.addedGags.length}|${trackCountKey(opt.addedGags)}|${accKey}|${finisherKey}`;
     const prev = map.get(key);
     if (!prev) {
       map.set(key, opt);
@@ -695,7 +701,17 @@ function solve(req: FillToKillRequest): FillToKillOption[] {
         compareOptions(a, b, sortMode === 'accuracy'),
       );
 
-  return sorted.slice(0, maxResults);
+  if (currentTotal >= hp) return sorted.slice(0, maxResults);
+
+  // Reserve room for direct level 7 finishers while preserving the selected ranking.
+  const finisherCount = sorted.filter(isOneGagLevel7Finisher).length;
+  let regularSlots = Math.max(0, maxResults - finisherCount);
+  return sorted.filter((option) => {
+    if (isOneGagLevel7Finisher(option)) return true;
+    if (regularSlots <= 0) return false;
+    regularSlots -= 1;
+    return true;
+  }).slice(0, maxResults);
 }
 
 // eslint-disable-next-line no-restricted-globals

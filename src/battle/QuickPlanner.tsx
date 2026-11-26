@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { BoilerLaffGuide } from '../components/BoilerLaffGuide';
+import { FacilityPromotionGuide } from '../components/FacilityPromotionGuide';
 import { PlannerToggle } from '../components/PlannerToggle';
 import { RoundActions } from './BattleResults';
 import {
@@ -342,7 +343,7 @@ export default function QuickPlanner({ visible }: { visible: boolean }) {
       }}
     >
       <div className="battle-wrap">
-        <header className="quick-header">
+        <header className="quick-header max-sm:flex-col">
           <div>
             <h1 ref={heading} tabIndex={-1}>
               Battle Planner
@@ -351,6 +352,7 @@ export default function QuickPlanner({ visible }: { visible: boolean }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <BoilerLaffGuide />
+            <FacilityPromotionGuide />
             <PlannerToggle active />
           </div>
         </header>

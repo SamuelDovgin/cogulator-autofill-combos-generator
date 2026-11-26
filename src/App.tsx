@@ -155,6 +155,7 @@ function ComboCalculator() {
   const {
     fillToKillLoading: isFillLoading,
     fillToKillOptions: fillOptions,
+    fillToKillFailed: isFillFailed,
     computeFillToKillOptions,
   } = useFillToKillOptions();
 
@@ -1100,8 +1101,8 @@ function ComboCalculator() {
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-1 items-start gap-4 min-[900px]:grid-cols-[max-content_max-content] min-[900px]:justify-start">
-            <div className="relative z-10 w-full space-y-3 min-[900px]:w-max">
+          <div className="grid w-full grid-cols-[minmax(0,1fr)] items-start gap-4 min-[900px]:grid-cols-[55rem_minmax(0,1fr)]">
+            <div className="relative z-10 min-w-0 space-y-3">
               <div className={panelClassName}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/8 px-3 py-2">
                   <div className="min-w-0">
@@ -1145,7 +1146,7 @@ function ComboCalculator() {
                     <span className="font-cog">- {groupBonus}</span> | Lure{' '}
                     <span className="font-cog">- {lureBonus}</span>
                   </div>
-                  <div className="min-h-5 text-xs leading-5 text-amber-200">
+                  <div className="h-10 text-xs leading-5 text-amber-200 sm:h-5">
                     {pendingTrap && (
                       <>
                         {pendingTrap.isOrganic ? 'Organic ' : ''}{pendingTrap.name} deals{' '}
@@ -1158,7 +1159,7 @@ function ComboCalculator() {
                     <InfoTip text={maxCogExplanation} />
                     <span className="font-cog" title={maxCogExplanation}>- {maxCogLevel}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex h-6 items-center gap-1">
                     <span className="font-bold text-white">Accuracy to kill:</span>{' '}
                     {calcSelectedGags.length ? (
                       <AccuracyPopover
@@ -1194,7 +1195,7 @@ function ComboCalculator() {
                     </button>
                   </div>
                 </div>
-                <div className="overflow-visible pt-[13px]">
+                <div className="overflow-x-auto px-1 pt-[13px] pb-2">
                   <div className="isolate flex w-max min-w-full flex-col gap-4">
                     {tracksToRender.map((track, idx) => (
                       <div
@@ -1221,7 +1222,7 @@ function ComboCalculator() {
               </div>
             </div>
 
-            <div className="relative z-20 w-full overflow-visible space-y-3 min-[900px]:w-max">
+            <div className="relative z-20 h-[clamp(30rem,75vh,46rem)] min-w-0">
               {effectiveTargetLevel !== null ? (
                 <KillOptionsTable
                   targetLevel={effectiveTargetLevel}
@@ -1230,6 +1231,7 @@ function ComboCalculator() {
                   currentGags={calcSelectedGags}
                   options={isFillLoading ? [] : fillOptions}
                   isLoading={isFillLoading}
+                  hasSearchError={isFillFailed}
                   sortMode={sortMode}
                   onSortModeChange={handleSortModeChange}
                   sortWeights={sortWeights}
@@ -1253,7 +1255,7 @@ function ComboCalculator() {
                   onSetLureTracksMultiplier={setLureTracksMultiplier}
                 />
               ) : (
-                <div className={`${panelClassName} text-slate-200`}>
+                <div className={`${panelClassName} h-full text-slate-200`}>
                   <div className="text-lg font-semibold text-white">Kill combos</div>
                   <div className="mt-2 text-sm text-slate-300/80">
                     Hover (preview) or click (commit) a Cog level to see one-turn kill options.

@@ -6,8 +6,8 @@ import type { GagInfo, GagTrack as GagTrackName } from '../types';
 import type { FillToKillOption, FillToKillRequest, ToonRestriction, SortMode, SortWeights, GagConserveWeights } from '../utils/fillToKillOptionsWorker';
 import type { OrganicTrack } from '../utils/toonTracks';
 
-// Vite worker import
-import FillToKillWorker from '../utils/fillToKillOptionsWorker?worker';
+// Keep searches available when an open tab outlives its deployment.
+import FillToKillWorker from '../utils/fillToKillOptionsWorker?worker&inline';
 
 export type ExcludeLevels = {
   low1to3: boolean; // levels 1-3
@@ -61,6 +61,7 @@ export function useFillToKillOptions() {
 
   const [fillToKillLoading, setFillToKillLoading] = useState(false);
   const [fillToKillOptions, setFillToKillOptions] = useState<FillToKillOption[]>([]);
+  const [fillToKillFailed, setFillToKillFailed] = useState(false);
 
   const cancelSearch = useCallback(() => {
     if (previewTimer.current !== null) {
@@ -80,6 +81,13 @@ export function useFillToKillOptions() {
     cancelSearch();
     workerRef.current?.terminate();
     workerRef.current = null;
+  }, [cancelSearch]);
+
+  const failSearch = useCallback(() => {
+    cancelSearch();
+    setFillToKillOptions([]);
+    setFillToKillLoading(false);
+    setFillToKillFailed(true);
   }, [cancelSearch]);
 
   const getWorker = useCallback(() => {
@@ -104,14 +112,12 @@ export function useFillToKillOptions() {
 
     const onError = () => {
       if (workerRef.current !== worker) return;
-      cancelSearch();
-      setFillToKillOptions([]);
-      setFillToKillLoading(false);
+      failSearch();
     };
     worker.onerror = onError;
     worker.onmessageerror = onError;
     return worker;
-  }, [cancelSearch]);
+  }, [failSearch]);
 
   const computeFillToKillOptions = useCallback(
     ({
@@ -136,6 +142,7 @@ export function useFillToKillOptions() {
       isPreview = false,
     }: ComputeArgs) => {
       cancelSearch();
+      setFillToKillFailed(false);
       const request: Omit<FillToKillRequest, 'requestId' | 'availableGags'> = {
         targetLevel,
         isTargetAlreadyLured,
@@ -188,10 +195,14 @@ export function useFillToKillOptions() {
       setFillToKillLoading(true);
       const start = () => {
         previewTimer.current = null;
-        const worker = getWorker();
-        const id = ++nextRequestId.current;
-        inFlight.current = { id, key };
-        worker.postMessage({ ...request, availableGags: AVAILABLE_GAGS, requestId: id });
+        try {
+          const worker = getWorker();
+          const id = ++nextRequestId.current;
+          inFlight.current = { id, key };
+          worker.postMessage({ ...request, availableGags: AVAILABLE_GAGS, requestId: id });
+        } catch {
+          failSearch();
+        }
       };
 
       if (isPreview) {
@@ -200,12 +211,13 @@ export function useFillToKillOptions() {
         start();
       }
     },
-    [cancelSearch, getWorker],
+    [cancelSearch, failSearch, getWorker],
   );
 
   return {
     fillToKillOptions,
     fillToKillLoading,
+    fillToKillFailed,
     computeFillToKillOptions,
   };
 }

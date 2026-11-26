@@ -62,6 +62,52 @@ it('conserves Operas while keeping useful two-Opera finishers in the results', a
   }
 });
 
+it('shows one-gag level 7 finishers for the Level 11 organic Opera setup', async () => {
+  vi.resetModules();
+  const addEventListener = vi.fn<
+    (name: 'message', handler: (event: { data: FillToKillRequest }) => void) => void
+  >();
+  const postMessage = vi.fn<(result: { options: FillToKillOption[] }) => void>();
+  vi.stubGlobal('self', { addEventListener, postMessage });
+
+  try {
+    await import('../src/utils/fillToKillOptionsWorker');
+    const solve = addEventListener.mock.calls[0][1];
+    const request = {
+      targetLevel: 11,
+      availableGags: Object.values(GAGS),
+      currentGags: [{ ...GAGS.OperaSinger, isOrganic: true }],
+      maxToons: 4,
+      maxResults: 30,
+      maxGenerated: 50000,
+      sortMode: 'weighted',
+      sortWeights: DEFAULT_SORT_WEIGHTS,
+      gagConserveWeights: DEFAULT_GAG_CONSERVE_WEIGHTS,
+      hideOverkillAdditions: true,
+      excludeLevels: { low1to3: true, level7: false },
+      toggles: { lureTrackMultiplier: 0.5 },
+    } satisfies FillToKillRequest;
+
+    solve({ data: request });
+    const options = postMessage.mock.lastCall?.[0].options;
+    expect(options).toHaveLength(30);
+    expect(options).toEqual(expect.arrayContaining([
+      expect.objectContaining({ addedGags: [GAGS.Foghorn], totalDamage: 179, accuracy: 0.95 }),
+      expect.objectContaining({ addedGags: [GAGS.OperaSinger], totalDamage: 227, accuracy: 0.95 }),
+      expect.objectContaining({ addedGags: [GAGS.WeddingCake], totalDamage: 219 }),
+      expect.objectContaining({ addedGags: [GAGS.Geyser], totalDamage: 204 }),
+      expect.objectContaining({ addedGags: [GAGS.Toontanic] }),
+    ]));
+
+    solve({ data: { ...request, excludeLevels: { low1to3: true, level7: true } } });
+    expect(postMessage.mock.lastCall?.[0].options.every(
+      ({ addedGags }) => addedGags.every(({ level }) => level !== 7),
+    )).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('fits organic and regular gags into distinct available Toon slots', async () => {
   vi.resetModules();
   const addEventListener = vi.fn<
@@ -127,6 +173,22 @@ it('fits organic and regular gags into distinct available Toon slots', async () 
     );
     expect(solve({ ...soundRequest, organicTracks: undefined, currentGags: [], targetHpOverride: 50 }))
       .toMatchObject([{ addedGags: [GAGS.Foghorn], totalDamage: 50 }]);
+
+    expect(solve({
+      targetLevel: 12,
+      availableGags: Object.values(GAGS),
+      currentGags: [],
+      maxToons: 4,
+      organicTracks: ['Sound', 'Sound', 'Sound', 'Sound'],
+      excludeLevels: { low1to3: true, level7: false },
+      hideOverkillAdditions: true,
+      sortMode: 'weighted',
+      maxGenerated: 50000,
+    })).toContainEqual(expect.objectContaining({
+      addedGags: [organicFoghorn, organicFoghorn, organicFoghorn],
+      totalDamage: 198,
+      accuracy: 0.95,
+    }));
 
     const dropRequest = {
       ...soundRequest,

@@ -22,8 +22,6 @@ import AccuracyPopover from './AccuracyPopover';
 const formatAccuracy = (value: number) =>
   Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '0.0%';
 
-const RESULTS_PANEL_MIN_HEIGHT_CLASS = 'min-h-[320px]';
-
 function buildComboItems(gags: GagInfo[]) {
   const counts: Record<string, { gag: GagInfo; count: number }> = {};
 
@@ -50,6 +48,7 @@ interface Props {
   currentGags: GagInstance[];
   options?: FillToKillOption[];
   isLoading: boolean;
+  hasSearchError: boolean;
   sortMode: SortMode;
   onSortModeChange: (mode: SortMode) => void;
   sortWeights: SortWeights;
@@ -80,6 +79,7 @@ export function KillOptionsTable({
   currentGags,
   options = [],
   isLoading,
+  hasSearchError,
   sortMode,
   onSortModeChange,
   sortWeights,
@@ -180,7 +180,7 @@ export function KillOptionsTable({
   }, [options]);
 
   return (
-    <div className="mt-3 flex w-full flex-col rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 min-[900px]:w-fit min-[900px]:max-w-full md:p-4">
+    <div className="flex h-full w-full flex-col rounded-2xl border-2 border-blue-900/60 bg-slate-900/70 p-3 md:p-4">
       <div className="mb-3 space-y-3">
         <div className="flex flex-col gap-2">
           <div className="font-minnie text-lg text-white md:text-xl">
@@ -255,7 +255,7 @@ export function KillOptionsTable({
         </div>
       </div>
 
-      <div className={`relative ${RESULTS_PANEL_MIN_HEIGHT_CLASS}`}>
+      <div className="min-h-0 flex-1">
         {options.length === 0 ? (
           <>
             {isLoading && (
@@ -263,9 +263,11 @@ export function KillOptionsTable({
             )}
             {!isLoading && (
               <div
-                className={`flex ${RESULTS_PANEL_MIN_HEIGHT_CLASS} items-center text-sm text-slate-300/80`}
+                className="flex h-full items-center text-sm text-slate-300/80"
               >
-                No valid one-turn kill found with the current constraints / toon count.
+                {hasSearchError
+                  ? 'The combo search failed. Reload the page and try again.'
+                  : 'No valid one-turn kill found with the current constraints / toon count.'}
               </div>
             )}
           </>
@@ -275,9 +277,9 @@ export function KillOptionsTable({
             role="region"
             aria-label="Kill combo results"
             tabIndex={0}
-            className={`kill-combo-results max-h-[600px] w-full ${RESULTS_PANEL_MIN_HEIGHT_CLASS} overflow-auto pr-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-400 min-[900px]:w-fit`}
+            className="kill-combo-results h-full w-full overflow-auto pr-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-400"
           >
-            <table className="w-full table-auto text-left text-sm min-[900px]:w-fit">
+            <table className="w-full table-auto text-left text-sm">
               <thead className="text-xs uppercase tracking-wider text-slate-300/80">
                 <tr>
                   <th className="sticky top-0 z-10 bg-slate-900 py-2 pr-3">Add</th>
