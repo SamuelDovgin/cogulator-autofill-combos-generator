@@ -4,9 +4,11 @@ import { createPortal } from 'react-dom';
 export function GuideDialog({
   title,
   children,
+  widthClassName = 'max-w-lg',
 }: {
   title: string;
   children: ReactNode;
+  widthClassName?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -28,7 +30,7 @@ export function GuideDialog({
           ref={dialog}
           aria-labelledby={titleId}
           onClose={() => trigger.current?.focus()}
-          className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200 shadow-2xl backdrop:bg-slate-950/75 sm:p-6"
+          className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200 shadow-2xl backdrop:bg-slate-950/75 sm:p-6 ${widthClassName}`}
         >
           <div className="flex items-center justify-between gap-3">
             <h2

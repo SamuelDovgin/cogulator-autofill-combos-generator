@@ -6,10 +6,10 @@ const facilities = [
     reward: 'Merits',
     source: 'https://toontownrewritten.wiki/Sellbot_Factory#Merits',
     runs: [
-      { name: 'Short Scrap', payout: '350–356' },
-      { name: 'Long Scrap', payout: '596–638' },
-      { name: 'Short Steel', payout: '867–950' },
-      { name: 'Long Steel', payout: '1,525–1,630' },
+      { name: 'Short Scrap', payout: [350, 356], minutes: 7 },
+      { name: 'Long Scrap', payout: [596, 638], minutes: 12 },
+      { name: 'Short Steel', payout: [867, 950], minutes: 10 },
+      { name: 'Long Steel', payout: [1525, 1630], minutes: 18 },
     ],
   },
   {
@@ -17,8 +17,8 @@ const facilities = [
     reward: 'Cogbucks',
     source: 'https://toontownrewritten.wiki/Cashbot_Mints#Cogbucks',
     runs: [
-      { name: 'Coin Mint', payout: '702–807' },
-      { name: 'Bullion Mint', payout: '1,626–1,850' },
+      { name: 'Coin Mint', payout: [702, 807], minutes: 12 },
+      { name: 'Bullion Mint', payout: [1626, 1850], minutes: 16 },
     ],
   },
   {
@@ -26,8 +26,8 @@ const facilities = [
     reward: 'Jury Notices',
     source: 'https://toontownrewritten.wiki/Lawbot_DA_Offices#Jury_Notices',
     runs: [
-      { name: 'Junior Wing', payout: '781–889' },
-      { name: 'Senior Wing', payout: '1,854–2,082' },
+      { name: 'Junior Wing', payout: [781, 889], minutes: 14 },
+      { name: 'Senior Wing', payout: [1854, 2082], minutes: 20 },
     ],
   },
   {
@@ -35,18 +35,21 @@ const facilities = [
     reward: 'Stock Options',
     source: 'https://toontownrewritten.wiki/Bossbot_Golf_Courses#Stock_Options',
     runs: [
-      { name: 'First Fairway', payout: '882–975' },
-      { name: 'Final Fringe', payout: '2,097–2,305' },
+      { name: 'First Fairway', payout: [882, 975], minutes: 14 },
+      { name: 'Final Fringe', payout: [2097, 2305], minutes: 20 },
     ],
   },
 ];
 
+const formatPoints = new Intl.NumberFormat('en-US').format;
+
 export function FacilityPromotionGuide() {
   return (
-    <GuideDialog title="Facility Promotion Guide">
+    <GuideDialog title="Facility Promotion Guide" widthClassName="max-w-xl">
       <p className="my-4 text-slate-300">
-        Estimated points per completed run in Toontown Rewritten. Payouts vary
-        with Cog levels.
+        Payouts vary with Cog levels. Per-minute estimates use the midpoint of
+        each payout range and assume an efficient group, timed inside the
+        facility.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -65,19 +68,48 @@ export function FacilityPromotionGuide() {
             >
               {reward}
             </a>
-            <dl className="mt-2 divide-y divide-slate-700 border-t border-slate-700">
-              {runs.map((run) => (
-                <div
-                  key={run.name}
-                  className="flex justify-between gap-2 py-1 text-sm"
-                >
-                  <dt>{run.name}</dt>
-                  <dd className="shrink-0 font-semibold whitespace-nowrap text-amber-200 tabular-nums">
-                    {run.payout}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <table className="mt-2 w-full text-sm">
+              <caption className="sr-only">{reward} by route</caption>
+              <thead className="text-xs text-slate-300">
+                <tr>
+                  <th scope="col" className="pb-1 text-left font-medium">
+                    Run
+                  </th>
+                  <th
+                    scope="col"
+                    className="pb-1 pl-2 text-right font-medium whitespace-nowrap"
+                  >
+                    Per run
+                  </th>
+                  <th
+                    scope="col"
+                    className="pb-1 pl-2 text-right font-medium whitespace-nowrap"
+                  >
+                    Per min
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map(({ name: run, payout: [low, high], minutes }) => (
+                  <tr key={run} className="border-t border-slate-700">
+                    <th scope="row" className="py-1 text-left font-normal">
+                      {run}
+                    </th>
+                    <td className="py-1 pl-2 text-right font-semibold whitespace-nowrap text-amber-200 tabular-nums">
+                      {formatPoints(low)}–{formatPoints(high)}
+                    </td>
+                    <td
+                      className="py-1 pl-2 text-right"
+                      title={`Assumes a ${minutes}-minute run`}
+                    >
+                      <span className="rounded bg-cyan-300/10 px-1.5 py-0.5 font-semibold text-cyan-200 tabular-nums">
+                        {Math.round((low + high) / (2 * minutes))}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         ))}
       </div>
