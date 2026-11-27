@@ -312,15 +312,13 @@ export function KillOptionsTable({
                   return (
                     <tr key={idx} className="align-top">
                       <td className="py-2 pr-3">
-                        <div className="w-fit max-w-[18rem] text-slate-100 min-[900px]:max-w-[20rem]">
-                          {opt.addedGags.length === 0 ? (
-                            <span className="font-bold text-emerald-300">
-                              No extra gags needed
-                            </span>
-                          ) : (
-                            <ComboPreview items={comboItems} />
-                          )}
-                        </div>
+                        {opt.addedGags.length === 0 ? (
+                          <span className="font-bold text-emerald-300">
+                            No extra gags needed
+                          </span>
+                        ) : (
+                          <ComboPreview items={comboItems} />
+                        )}
                       </td>
                       <td className="py-2 pr-3 tabular-nums text-slate-200">{toonsUsed}</td>
                       <td className="py-2 pr-3 tabular-nums text-slate-200">
