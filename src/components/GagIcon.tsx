@@ -17,13 +17,13 @@ export function GagIcon({ gag, className = '' }: { gag: GagInfo; className?: str
             <img
                 alt={gag.isOrganic ? `Organic ${canonical.name}` : canonical.name}
                 draggable={false}
-                className="h-10 w-10 object-contain drop-shadow-[1px_1px_1px_black]"
+                className="size-7 object-contain drop-shadow-[1px_1px_1px_black]"
                 src={canonical.image}
             />
             {gag.isOrganic && (
                 <img
                     alt=""
-                    className="absolute -top-1 -right-2 h-5 w-5 rounded-full bg-emerald-950 object-contain"
+                    className="absolute -top-1 -right-1 size-4 rounded-full bg-emerald-950 object-contain"
                     draggable={false}
                     src={organicLeaf}
                 />
